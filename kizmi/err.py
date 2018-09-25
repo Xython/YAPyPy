@@ -1,0 +1,2 @@
+class ArgumentError(ValueError):
+    pass
