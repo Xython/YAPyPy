@@ -1,2 +1,0 @@
-class ArgumentError(ValueError):
-    pass
