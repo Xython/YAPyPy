@@ -1,6 +1,8 @@
 
 ## 实例一 DBG-Lang
 
+见[kizmi/cmd](https://github.com/thautwarm/kizmi/tree/master/kizmi/cmd)和 [kizmi/database](https://github.com/thautwarm/kizmi/tree/master/kizmi/database)
+
 - 用途: 数据库设计维护
 - 优势:
     1. 通过极少的DSL代码生成大量目标语言代码, 便于重构、维护。
@@ -11,6 +13,8 @@
 - 使用: 使用setup.py安装后, 使用命令`dbg gen <dbg脚本文件名> <生成python文件名>`
 
 ## 实例二 为Python添加扩展语法
+
+见[kizmi/extended_python](https://github.com/thautwarm/kizmi/tree/master/kizmi/extended_python)
 
 该扩展建立在原生Python的编译组件上, 使用了[原生Python的文法](https://github.com/python/cpython/blob/master/Grammar/Grammar),
 以及原生CPython的lexer, 以及CPython虚拟机。
