@@ -1,5 +1,7 @@
 RBNF = \
 r"""
+import ast.[*]
+import kizmi.extended_python.helper import loc
 NEWLINE := ''
 ENDMARKER := ''
 NAME := ''
@@ -102,24 +104,68 @@ arith_expr     ::= term (('+'|'-') term)*
 term           ::= factor (('*'|'@'|'/'|'%'|'//') factor)*
 factor         ::= ('+'|'-'|'~') factor | power
 power          ::= atom_expr ['**' factor]
-atom_expr      ::= ['await'] atom trailer*
-atom           ::= ('(' [yield_expr|testlist_comp] ')' |
-                   '[' [testlist_comp] ']' |
-                   '{' [dictorsetmaker] '}' |
-                   NAME | NUMBER | STRING+ | '...' | 'None' | 'True' | 'False')
-testlist_comp  ::= (test|star_expr) ( comp_for | (',' (test|star_expr))* [','] )
-trailer        ::= '(' [arglist] ')' | '[' subscriptlist ']' | '.' NAME
-subscriptlist  ::= subscript (',' subscript)* [',']
-subscript      ::= test | [test] ':' [test] [sliceop]
-sliceop        ::= ':' [test]
-exprlist       ::= (expr|star_expr) (',' (expr|star_expr))* [',']
-testlist       ::= test (',' test)* [',']
-dictorsetmaker ::= (((test ':' test | '**' expr)
-                     (comp_for | (',' (test ':' test | '**' expr))* [','])) |
-                    ((test | star_expr)
-                     (comp_for | (',' (test | star_expr))* [','])) )
+atom_expr      ::= [a='await'] atom=atom trailers=trailer*
+                   -> atom_expr_rewrite(a, atom, trailers)
 
-classdef ::= 'class' NAME ['(' [arglist] ')'] ':' suite
+atom           ::= (gen ='(' comp=[yield_expr|testlist_comp] ')' |
+                    list='[' comp=[testlist_comp]            ']' |
+                    '{' dict=[dictorsetmaker] '}' |
+                   name=NAME |
+                   number=NUMBER | 
+                   strs=STRING+ | 
+                   ellipsis='...' | 
+                   namedc='None' | 
+                   namedc='True' | 
+                   namedc='False')
+                   ->
+                   Name(**(loc @ name), id=name.value, ctx=Load()) if name else\
+                   Number(**(loc @ number), v=number.value) if number else\
+                   str_maker(strs) if strs else\
+                   Ellipsis() if ellipsis else\
+                   NamedConstant(**(loc@namedc), vlaue=namedc.value) if namedc else\
+                   dict if dict else\
+                   comp(is_tuple=True) if gen else\
+                   comp(is_list=True) if lisp else\
+                   raise_exp(TypeError)   
+                                      
+testlist_comp  ::= values<<(test|star_expr) ( comp=comp_for | (',' values<<(test|star_expr))* [','] )
+                   ->
+                     def app(is_tuple=None, is_list=None):
+                        if is_list and comp:
+                            return ListComp(*values, comp)
+                        elif is_list:
+                            return List(values, Load())
+                        elif comp:
+                            return GeneratorExp(*values, comp)
+                        else:
+                            return Tuple(values, Load())
+                     app
+
+# `ExtSlice` is ignored here. We don't need this optimization for this project.
+trailer        ::= mark='(' [arglist=arglist] ')' | mark='[' subscr=subscriptlist ']' | mark='.' attr=NAME
+                    -> args, kwargs = split_args_helper(arglist)
+                       (lambda value: Slice(**(loc @ mark), value=value, slice=subscr )) if subscr else\
+                       (lambda value: Call( **(loc @ mark), func =value,  args=args, keywords=kwargs)) if arglist else\
+                       (lambda value: Attr( **(loc @ mark), value=value,  attr=attr.value))
+                       
+subscriptlist  ::= head=subscript (',' tail << subscript)* [',']
+                   ->  Index(head) if not tail else Tuple([head, *tail], Load())                                      
+subscript3     ::= [lower=test] ':' [upper=test] [':' [step=test]] -> Slice(lower, upper, step)                        
+subscript      ::= it=(test | subscript3) -> it
+exprlist       ::= seq << (expr|star_expr) (',' seq << (expr|star_expr))* [','] -> seq
+testlist       ::= seq << test (',' seq << test)* [','] -> seq
+
+dict_unpack_s  ::= '**' -> None                
+dictorsetmaker ::= (((keys<<test ':' values<<test | keys<<dict_unpack_s values<<expr)
+                     (comp=comp_for | (',' (keys<<test ':' values<<test | keys<<dict_unpack_s values<<expr))* [','])) |
+                    (values<<(test | star_expr)
+                     (comp=comp_for | (',' values<<(test | star_expr))* [','])) )
+                    -> if not comp: return Dict(keys, values) if keys else Set(values)
+                       DictComp(*keys, *values, comp) if keys else SetComp(*values, comp)
+
+classdef ::= mark='class' name=NAME ['(' [arglist=arglist] ')'] ':' suite
+             -> args, kwargs = split_args_helper(arglist)
+                ClassDef(**(loc @ mark), name.value, args, kwargs, suite, [])
 
 arglist   ::= argument (',' argument)*  [',']
 
@@ -128,13 +174,11 @@ argument  ::= ( test [comp_for] |
                 '**' test |
                 '*' test )
 
-comp_iter     ::= comp_for | comp_if
-sync_comp_for ::= 'for' exprlist 'in' or_test [comp_iter]
-comp_for      ::= ['async'] sync_comp_for
-comp_if       ::= 'if' test_nocond [comp_iter]
+comp_for_item ::= [is_async='async'] 'for' target=exprlist 'in' iter=or_test ('if' ifs<<test_nocond)* 
+                  -> comprehension(target, iter, ifs, bool(is_async))
+comp_for      ::= generators=comp_for_item+ -> list(generators)
 
 encoding_decl ::= NAME
 
-yield_expr    ::= 'yield' [yield_arg]
-yield_arg     ::= 'from' test | testlist_star_expr
+yield_expr    ::= 'yield' ['from' test | testlist_star_expr]
 """
