@@ -5,7 +5,10 @@ from rbnf.core.State import State
 from rbnf.easy import Language, build_parser, build_language, ze
 from keyword import kwlist
 from .grammar import RBNF
+from kizmi.extended_python import helper
+import ast
 import typing as t
+
 import io
 cast = ConstStrPool.cast_to_const
 
@@ -37,6 +40,7 @@ def lex(text: t.Union[str, bytes]):
 
 
 python = Language('python')
+python.namespace.update({**helper.__dict__, **ast.__dict__})
 build_language(RBNF, python, '<grammar>')
 python_parser = python.named_parsers['file_input']
 

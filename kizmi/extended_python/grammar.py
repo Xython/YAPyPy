@@ -1,7 +1,5 @@
 RBNF = \
 r"""
-import ast.[*]
-import kizmi.extended_python.helper import loc
 NEWLINE := ''
 ENDMARKER := ''
 NAME := ''
@@ -109,25 +107,25 @@ atom_expr      ::= [a='await'] atom=atom trailers=trailer*
 
 atom           ::= (gen ='(' comp=[yield_expr|testlist_comp] ')' |
                     list='[' comp=[testlist_comp]            ']' |
-                    '{' dict=[dictorsetmaker] '}' |
-                   name=NAME |
-                   number=NUMBER | 
-                   strs=STRING+ | 
-                   ellipsis='...' | 
-                   namedc='None' | 
-                   namedc='True' | 
-                   namedc='False')
-                   ->
-                   Name(**(loc @ name), id=name.value, ctx=Load()) if name else\
-                   Number(**(loc @ number), v=number.value) if number else\
-                   str_maker(strs) if strs else\
-                   Ellipsis() if ellipsis else\
-                   NamedConstant(**(loc@namedc), vlaue=namedc.value) if namedc else\
-                   dict if dict else\
-                   comp(is_tuple=True) if gen else\
-                   comp(is_list=True) if lisp else\
-                   raise_exp(TypeError)   
-                                      
+                       '{' dict=[dictorsetmaker] '}' |
+                       name=NAME |
+                       number=NUMBER | 
+                       strs=STRING+ | 
+                       ellipsis='...' | 
+                       namedc='None' | 
+                       namedc='True' | 
+                       namedc='False')
+                       ->
+                           Name(**(loc @ name), id=name.value, ctx=Load()) if name else\
+                           Number(**(loc @ number), v=number.value) if number else\
+                           str_maker(*strs) if strs else\
+                           Ellipsis() if ellipsis else\
+                           NamedConstant(**(loc@namedc), vlaue=namedc.value) if namedc else\
+                           dict if dict else\
+                           comp(is_tuple=True) if gen else\
+                           comp(is_list=True) if lisp else\
+                           raise_exp(TypeError) 
+                                          
 testlist_comp  ::= values<<(test|star_expr) ( comp=comp_for | (',' values<<(test|star_expr))* [','] )
                    ->
                      def app(is_tuple=None, is_list=None):
@@ -146,7 +144,7 @@ trailer        ::= mark='(' [arglist=arglist] ')' | mark='[' subscr=subscriptlis
                     -> args, kwargs = split_args_helper(arglist)
                        (lambda value: Slice(**(loc @ mark), value=value, slice=subscr )) if subscr else\
                        (lambda value: Call( **(loc @ mark), func =value,  args=args, keywords=kwargs)) if arglist else\
-                       (lambda value: Attr( **(loc @ mark), value=value,  attr=attr.value))
+                       (lambda value: Attribute( **(loc @ mark), value=value,  attr=attr.value))
                        
 subscriptlist  ::= head=subscript (',' tail << subscript)* [',']
                    ->  Index(head) if not tail else Tuple([head, *tail], Load())                                      
@@ -165,7 +163,7 @@ dictorsetmaker ::= (((keys<<test ':' values<<test | keys<<dict_unpack_s values<<
 
 classdef ::= mark='class' name=NAME ['(' [arglist=arglist] ')'] ':' suite
              -> args, kwargs = split_args_helper(arglist)
-                ClassDef(**(loc @ mark), name.value, args, kwargs, suite, [])
+                ClassDef(**(loc @ mark), name=name.value, bases=args, keywords=kwargs, body=suite, decorator_list=[])
 
 arglist   ::= argument (',' argument)*  [',']
 

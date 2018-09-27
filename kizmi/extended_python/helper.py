@@ -38,11 +38,10 @@ def str_maker(*strs: Tokenizer):
 
 
 def atom_expr_rewrite(a: t.Optional[Tokenizer], atom: ast.AST,
-                      trailers: t.List[ast.Suite]):
+                      trailers: t.List[t.Callable[[ast.AST], ast.Suite]]):
 
     for each in trailers:
-        each.value = atom
-        atom = each
+        atom = each(atom)
 
     if a:
         atom = ast.Await(**(loc @ a), value=atom)
@@ -50,4 +49,9 @@ def atom_expr_rewrite(a: t.Optional[Tokenizer], atom: ast.AST,
 
 
 def split_args_helper(arglist):
+
     raise NotImplemented
+
+
+def split_args_helper(arglist):
+    return [], []
