@@ -7,100 +7,106 @@ DEDENT := ''
 NUMBER := ''
 STRING := ''
 
-single_input ::= NEWLINE | simple_stmt | compound_stmt NEWLINE
-file_input   ::= (NEWLINE | stmt)* ENDMARKER
-eval_input   ::= testlist NEWLINE* ENDMARKER
+single_input ::= it=NEWLINE | seq=simple_stmt | it=compound_stmt NEWLINE
+file_input   ::= (NEWLINE | seqs<<stmt)* ENDMARKER -> mod=Module(sum(seqs, [])); fix_missing_locations(mod); return mod
+eval_input   ::= it=testlist NEWLINE* ENDMARKER -> Expression(it)
 
-decorator    ::= '@' dotted_name [ '(' [arglist] ')' ] NEWLINE
-decorators   ::= decorator+
-decorated    ::= decorators (classdef | funcdef | async_funcdef)
+# the restrictions of decorator syntax are released here for the sake of convenience.
+decorator    ::= '@' exp=test NEWLINE                                                   -> exp
+decorated    ::= decorators=decorator+ it=(classdef | funcdef | async_funcdef)          -> it.decorator_list = list(decorators); return it
+                
+async_funcdef ::= mark='async' name=NAME args=parameters ['->' ret=test] ':' body=suite -> def_rewrite(mark, name, args, ret, body, is_async=True) 
+funcdef       ::= mark='def' name=NAME args=parameters ['->' ret=test] ':' body=suite   -> def_rewrite(mark, name, args, ret, body)
 
-async_funcdef ::= 'async' funcdef
-funcdef       ::= 'def' NAME parameters ['->' test] ':' suite
 
+parameters    ::= '(' [args=typedargslist] ')'                                          -> args if args else arguments([], None, [], [], None, [])
+lam_args      ::= [args=varargslist]                                                    -> args if args else arguments([], None, [], [], None, [])
 
-parameters    ::= '(' [args=typedargslist] ')' -> args if args else arguments([], None, [], [], None, [])
-lam_args      ::= [args=varargslist]           -> args if args else arguments([], None, [], [], None, [])
+default_fp    ::= '=' expr=test                                                         -> expr
+kw_default_fp ::= ['=' expr=test]                                                       -> expr 
+tfpdef ::= name=NAME [':' annotation=test]                                              -> arg(name.value, annotation, **loc @ name) 
+vfpdef ::= name=NAME                                                                    -> arg(name.value, None, **loc @ name)
 
-default_fp    ::= ['=' expr=test] -> expr 
-
-typedargslist ::=  (args << tfpdef defaults<<default_fp (',' args<<tfpdef defaults<<default_fp)* [',' [
-                    '*' [vararg=tfpdef] (',' kwonlyargs<<tfpdef kw_defaults<<default_fp)* [',' ['**' kwarg=tfpdef [',']]]
+typedargslist ::=  args << tfpdef [defaults<<default_fp] (',' args<<tfpdef [defaults<<default_fp])* [',' [
+                    '*' [vararg=tfpdef] (',' kwonlyargs<<tfpdef kw_defaults<<kw_default_fp)* [',' ['**' kwarg=tfpdef [',']]]
                    | '**' kwarg=tfpdef [',']]]
-                   | '*' [vararg=tfpdef] (',' kwonlyargs<<tfpdef kw_defaults<<default_fp)* [',' ['**' kwarg=tfpdef [',']]]
-                   | '**' kwarg=tfpdef [','])  
+                   | '*' [vararg=tfpdef] (',' kwonlyargs<<tfpdef kw_defaults<<kw_default_fp)* [',' ['**' kwarg=tfpdef [',']]]
+                   | '**' kwarg=tfpdef [',']                                           
                    -> arguments(args or [], vararg, kwonlyargs or [], kw_defaults or [], kwarg, defaults or [])
-                   
-tfpdef ::= name=NAME [':' annotation=test] -> arg(name.value, annotation, **loc @ name) 
 
-varargslist ::= args << vfpdef defaults<<default_fp (',' args<<vfpdef defaults<<default_fp)* [',' [
-                 '*' [vararg=vfpdef] (',' kwonlyargs<<vfpdef kw_defaults<<default_fp)* [',' ['**' kwarg=vfpdef [',']]]
+
+varargslist ::= args << vfpdef [defaults<<default_fp] (',' args<<vfpdef [defaults<<default_fp])* [',' [
+                 '*' [vararg=vfpdef] (',' kwonlyargs<<vfpdef kw_defaults<<kw_default_fp)* [',' ['**' kwarg=vfpdef [',']]]
                 | '**' kwarg=vfpdef [',']]]
-                | '*' [vararg=vfpdef] (','kwonlyargs<<vfpdef kw_defaults<<default_fp)* [',' ['**' kwargs=vfpdef [',']]]
-                | '**' kwargs=vfpdef [',']
+                | '*' [vararg=vfpdef] (','kwonlyargs<<vfpdef kw_defaults<<kw_default_fp)* [',' ['**' kwargs=vfpdef [',']]]
+                | '**' kwargs=vfpdef [',']    
                 -> arguments(args or [], vararg, kwonlyargs or [], kw_defaults or [], kwarg, defaults or [])
 
-vfpdef ::= name=NAME                      -> arg(name.value, None, **loc @ name)
-
-stmt ::= simple_stmt | compound_stmt
-simple_stmt ::= small_stmt (';' small_stmt)* [';'] NEWLINE
-small_stmt  ::= (expr_stmt | del_stmt | pass_stmt | flow_stmt |
-                import_stmt | global_stmt | nonlocal_stmt | assert_stmt)
-expr_stmt   ::= testlist_star_expr (annassign | augassign (yield_expr|testlist) |
-                     ('=' (yield_expr|testlist_star_expr))*)
-annassign   ::= ':' test ['=' test]
-testlist_star_expr ::= (test|star_expr) (',' (test|star_expr))* [',']
-augassign   ::= ('+=' | '-=' | '*=' | '@=' | '/=' | '%=' | '&=' | '|=' | '^=' |
-                '<<=' | '>>=' | '**=' | '//=')
-# For normal and annotated assignments, additional restrictions enforced by the interpreter
-del_stmt   ::= 'del' exprlist
-pass_stmt  ::= 'pass'
-flow_stmt  ::= break_stmt | continue_stmt | return_stmt | raise_stmt | yield_stmt
-break_stmt ::= 'break'
-continue_stmt ::= 'continue'
-return_stmt ::= 'return' [testlist_star_expr]
-yield_stmt  ::= yield_expr
-raise_stmt  ::= 'raise' [test ['from' test]]
-import_stmt ::= import_name | import_from
-import_name ::= 'import' dotted_as_names
-# note below::= the ('.' | '...') is necessary because '...' is tokenized as ELLIPSIS
-import_from ::= ('from' (('.' | '...')* dotted_name | ('.' | '...')+)
-              'import' ('*' | '(' import_as_names ')' | import_as_names))
-import_as_name ::= NAME ['as' NAME]
-dotted_as_name ::= dotted_name ['as' NAME]
-import_as_names::= import_as_name (',' import_as_name)* [',']
-dotted_as_names::= dotted_as_name (',' dotted_as_name)*
-dotted_name    ::= NAME ('.' NAME)*
-global_stmt    ::= 'global' NAME (',' NAME)*
-nonlocal_stmt  ::= 'nonlocal' NAME (',' NAME)*
-assert_stmt    ::= 'assert' test [',' test]
-
-compound_stmt  ::= if_stmt | while_stmt | for_stmt | try_stmt | with_stmt | funcdef | classdef | decorated | async_stmt
-async_stmt     ::= 'async' (funcdef | with_stmt | for_stmt)
-if_stmt        ::= 'if' test ':' suite ('elif' test ':' suite)* ['else' ':' suite]
-while_stmt     ::= 'while' test ':' suite ['else' ':' suite]
-for_stmt       ::= 'for' exprlist 'in' testlist ':' suite ['else' ':' suite]
-try_stmt       ::= ('try' ':' suite
-                   ((except_clause ':' suite)+
-                    ['else' ':' suite]
-                    ['finally' ':' suite] |
-                    'finally' ':' suite))
-
-with_stmt      ::= 'with' with_item (',' with_item)*  ':' suite
-with_item      ::= test ['as' expr]
-except_clause  ::= 'except' [test ['as' NAME]]
-suite          ::= simple_stmt | NEWLINE INDENT stmt+ DEDENT
-
+stmt        ::= seq=simple_stmt | it=compound_stmt                                                            -> [it] if it else seq
+simple_stmt ::= seq<<small_stmt (';' seq<<small_stmt)* [';'] NEWLINE                                          -> seq
+small_stmt  ::= it=(expr_stmt | del_stmt | pass_stmt | flow_stmt |                                            # ------------------------------
+                import_stmt | global_stmt | nonlocal_stmt | assert_stmt)                                      -> it
+expr_stmt   ::= lhs=testlist_star_expr (ann=annassign | aug=augassign aug_exp=(yield_expr|testlist) |         # ------------------------------
+                     ('=' rhs<<(yield_expr|testlist_star_expr))*)                                             -> expr_stmt_rewrite(lhs, ann, aug, aug_exp, rhs)
+annassign   ::= ':' anno=test ['=' value=test]                                                                -> (anno, value)
+testlist_star_expr ::= seq<<(test|star_expr) (',' seq<<(test|star_expr))* [force_tuple=',']                   -> Tuple(seq) if len(seq) > 1 or force_tuple else seq[0]                                                
+augassign   ::= it=('+=' | '-=' | '*=' | '@=' | '/=' | '%=' | '&=' | '|=' | '^=' |                            # ------------------------------
+                    '<<=' | '>>=' | '**=' | '//=')                                                            -> augassign_rewrite(it)
+# For normal and annotated assignments, additional restrictions enforced by the interpreter                   -------------------------------
+del_stmt   ::= mark='del' tp=exprlist                                                                         -> Delete(tp.elts if isinstance(tp, Tuple) else [tp], **loc @ mark)
+pass_stmt  ::= mark='pass'                                                                                    -> Pass(**loc @ mark)
+flow_stmt  ::= it=(break_stmt | continue_stmt | return_stmt | raise_stmt | yield_stmt)                        -> it
+break_stmt ::= mark='break'                                                                                   -> Break(**loc @ mark)
+continue_stmt ::= mark='continue'                                                                             -> Continue(**loc @ mark)
+return_stmt ::= mark='return' [value=testlist_star_expr]                                                      -> Return(value, **loc @ mark)
+yield_stmt  ::= exp=yield_expr                                                                                -> Expr(exp)                                    
+raise_stmt  ::= mark='raise' [exc=test ['from' cause=test]]                                                   -> Raise(exc, cause, **loc @ mark) 
+import_stmt ::= it=(import_name | import_from)                                                                -> it 
+import_name ::= mark='import' names=dotted_as_names                                                            -> Import(names, **loc @ mark)
+# note below::= the ('.' | '...') is necessary because '...' is tokenized as ELLIPSIS                         --------------------------------
+import_level::= (_1='.' | '...')                                                                              -> 1 if _1 else 3                                                           
+wild        ::= '*'                                                                                           -> [alias(name='*', asname=None)]
+import_from ::= (mark='from' (levels=('.' | '...')* module=dotted_name | levels=('.' | '...')+)               # ------------------------------
+                 'import' (wild='*' | '(' names=import_as_names ')' | names=import_as_names))                 -> ImportFrom(module, wild or names, sum(levels or []), **loc @ mark)                           
+NAMESTR        ::= n=NAME                                                                                     -> n.value         
+import_as_name ::= name=NAMESTR ['as' asname=NAMESTR]                                                         -> alias(name, asname)
+dotted_as_name ::= name=dotted_name ['as' asname=NAMESTR]                                                     -> alias(name, asname) 
+import_as_names::= seq<<import_as_name (',' seq<<import_as_name)* [',']                                       -> seq
+dotted_as_names::= seq<<dotted_as_name (',' seq<<dotted_as_name)*                                             -> seq
+dotted_name    ::= xs=(NAME ('.' NAME)*)                                                                      -> '.'.join(c.value for c in xs) 
+global_stmt    ::= mark='global' names<<NAMESTR (',' name<<NAMESTR)*                                          -> Global(names, **loc @ mark)                                                         
+nonlocal_stmt  ::= mark='nonlocal' names<<NAMESTR (',' name<<NAMESTR)*                                        -> Nonlocal(names, **loc @ mark)
+assert_stmt    ::= mark='assert' test=test [',' msg=test]                                                     -> Assert(test, msg, **loc @ mark)
+compound_stmt  ::= it=(if_stmt | while_stmt | for_stmt | try_stmt | with_stmt | funcdef | classdef | decorated # ------------------------------
+                   | async_stmt)                                                                              -> it
+async_stmt     ::= it=(async_funcdef | async_with_stmt | async_for_stmt)                                      -> it
+if_stmt        ::=  marks<<'if' tests<<test ':'                                                               # ------------------------------
+                        bodies<<suite                                                                         # ------------------------------
+                    (marks<<'elif' tests<<test ':' bodies<<suite)*                                            # ------------------------------
+                    ['else' ':' orelse=suite]                                                                 -> if_stmt_rewrite(marks, tests, bodies, orelse)
+while_stmt     ::= 'while' test=test ':' body=suite ['else' ':' orelse=suite]                                  -> while_stmt_rewrite(test, body, orelse)
+async_for_stmt ::= 'async' 'for' target=exprlist 'in' iter=testlist ':' body=suite ['else' ':' orelse=suite]  -> for_stmt_rewrite(target, iter, body, orelse, is_async=True)  
+for_stmt       ::= 'for' target=exprlist 'in' iter=testlist ':' body=suite ['else' ':' orelse=suite]          -> for_stmt_rewrite(target, iter, body, orelse)
+try_stmt       ::= (mark='try' ':'                                                                            # ---------------------------
+                    body=suite                                                                                # ---------------------------
+                   ((excs<<except_clause ':' rescues<<suite)+                                                 # ---------------------------
+                    ['else' ':' orelse=suite]                                                                 # ---------------------------
+                    ['finally' ':' final=suite] |                                                             # ---------------------------
+                     'finally' ':' final=suite))                                                              -> try_stmt_rewrite(mark, body, excs, rescues, orelse, final)
+async_with_stmt::= mark='async' 'with' items<<with_item (',' items<<with_item)*  ':' body=suite               -> with_stmt_rewrite(mark, items, body, is_async=True)
+with_stmt      ::= mark='with' items<<with_item (',' items<<with_item)*  ':' body=suite                       -> with_stmt_rewrite(mark, items, body)
+with_item      ::= context_expr=test ['as' optional_vars=expr]                                                -> withitem(context_expr, as_store(optional_vars))                                                       
+except_clause  ::= 'except' [type=test ['as' name=NAMESTR]]                                                   -> (type, name)                                                       
+suite          ::= seqs<<simple_stmt | NEWLINE INDENT (seqs<<stmt)+ DEDENT                                    -> sum(seqs, [])
 test           ::= it=(ifexp| lambdef)                                  -> it
-
 ifexp          ::= body=or_test ['if' test=or_test 'else' orelse=test]  -> IfExp(test, body, orelse) if orelse else body 
 test_nocond    ::= it=(or_test | lambdef_nocond)                        -> it         
 
 lambdef        ::= m='lambda' args=lam_args ':' body=test               -> Lambda(lam_args, body) 
 lambdef_nocond ::= m='lambda' args=lam_args ':' body=test_nocond        -> Lambda(lam_args, body)
 
-or_test        ::= seq<<and_test ('or' seq<<and_test)*                  -> BoolOp(Or(), seq)
-and_test       ::= seq<<not_test ('and' seq<<not_test)*                 -> BoolOp(And(), seq)
+or_test        ::= head=and_test ('or' tail<<and_test)*                  -> BoolOp(Or(), [head, *tail])  if tail else head  
+and_test       ::= head=not_test ('and' tail<<not_test)*                 -> BoolOp(And(), [head, *tail]) if tail else head
 not_test       ::= mark='not' expr=not_test | comp=comparison           -> UnaryOp(Not(), expr, **loc @ mark) if mark else comp 
 
 comparison     ::= left=expr (ops<<comp_op comparators<<expr)*          -> Compare(left, ops, comparators) if ops else left
@@ -115,7 +121,7 @@ expr           ::= head=xor_expr tail=expr_tr*                          -> expr_
 xor_expr_tr    ::= op='^' expr=and_expr                                 -> (op, expr) 
 xor_expr       ::= head=and_expr tail=xor_expr_tr*                      -> xor_expr_rewrite(head, tail)
 
-and_expr       ::= seq<<shift_expr ('&' seq<<shift_expr)*               -> and_expr_rewrite(seq)
+and_expr       ::= head=shift_expr ('&' tail=shift_expr)*               -> and_expr_rewrite(head, tail)
 
 shift_expr_tr  ::= op=('<<'|'>>') expr=arith_expr                       -> (op, expr)
 shift_expr     ::= head=arith_expr tail=shift_expr_tr*                  -> shift_expr_rewrite(head, tail)
@@ -143,11 +149,11 @@ atom           ::= (gen ='(' comp=[yield_expr|testlist_comp] ')' |
                        namedc='True' | 
                        namedc='False')
                        ->
-                           Name(**(loc @ name), id=name.value, ctx=Load()) if name else\
-                           Number(**(loc @ number), v=number.value) if number else\
+                           Name(name.value, Load(), **loc @ name) if name else\
+                           Num(eval(number.value), **loc @ number) if number else\
                            str_maker(*strs) if strs else\
                            Ellipsis() if ellipsis else\
-                           NamedConstant(**(loc@namedc), vlaue=namedc.value) if namedc else\
+                           NamedConstant(eval(namedc.value), **loc@namedc) if namedc else\
                            dict if dict else\
                            comp(is_tuple=True) if gen else\
                            comp(is_list=True) if lisp else\
@@ -167,11 +173,11 @@ testlist_comp  ::= values<<(test|star_expr) ( comp=comp_for | (',' values<<(test
                      app
 
 # `ExtSlice` is ignored here. We don't need this optimization for this project.
-trailer        ::= mark='(' [arglist=arglist] ')' | mark='[' subscr=subscriptlist ']' | mark='.' attr=NAME
+trailer        ::= call='(' [arglist=arglist] ')' | mark='[' subscr=subscriptlist ']' | mark='.' attr=NAME
                     -> args, kwargs = split_args_helper(arglist or [])
-                       (lambda value: Slice(**(loc @ mark), value=value, slice=subscr )) if subscr else\
-                       (lambda value: Call( **(loc @ mark), func =value,  args=args, keywords=kwargs)) if arglist else\
-                       (lambda value: Attribute( **(loc @ mark), value=value,  attr=attr.value))
+                       (lambda value: Slice(value, subscr, **loc @ mark)) if subscr else\
+                       (lambda value: Call(value, args, kwargs, **loc @ call)) if call else\
+                       (lambda value: Attribute(value, attr.value, Load(), **loc @ mark))                       
                        
 # `Index` will be deprecated in Python3.8. 
 # See https://github.com/python/cpython/pull/9605#issuecomment-425381990                        
@@ -180,7 +186,7 @@ subscriptlist  ::= head=subscript (',' tail << subscript)* [',']
 subscript3     ::= [lower=test] ':' [upper=test] [':' [step=test]] -> Slice(lower, upper, step)                        
 subscript      ::= it=(test | subscript3) -> it
 exprlist       ::= seq << (expr|star_expr) (',' seq << (expr|star_expr))* [','] -> seq
-testlist       ::= seq << test (',' seq << test)* [','] -> seq
+testlist       ::= seq << test (',' seq << test)* [force_tuple=','] -> Tuple(seq, Load()) if force_tuple or len(seq) > 1 else seq[0]
 
 dict_unpack_s  ::= '**' -> None                
 dictorsetmaker ::= (((keys<<test ':' values<<test | keys<<dict_unpack_s values<<expr)

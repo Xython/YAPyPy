@@ -1,13 +1,15 @@
 from kizmi.extended_python.parser import parse
-print(
-    parse(r"""
-from kizmi.expr_first_lang.parser import parse
-from kizmi.expr_first_lang.parser import parse
-class S:
-    pass
-print(
-    parse(r'''
+mod = parse(r"""    
+class G:
+    @property
+    def a(self):
+        return "hello pypy!"
 
-''').result)
-    
-""").result)
+def f():
+    print(G().a)
+
+f()
+""").result
+
+code = compile(mod, "test", "exec")
+exec(code)

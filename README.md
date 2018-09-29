@@ -20,16 +20,23 @@
 以及原生CPython的lexer, 以及CPython虚拟机。
 
 - 目标:
-    1. 为Python添加block语法, 统一表达式和语句(例如多行lambda)
-    2. 为Python添加match语法, 提供模式匹配组件
-    3. 为Python添加macro语法, 提供便利的ast重写机制
-    4. (待定)使用纯python实现一套python字节码编译器。
+    1. 以纯Python实现Python的parser以及Python字节码编译器(非必要)。
 
-        前面三个目标的实现，会分别为三个语法实现扩展ast,
-        但这三个扩展ast只是被转换到python internal ast上, 而无法直接编译到字节码。这会导致一些性能上的问题。
+    2. 添加block, match, macro的语法, 设计语义, 实现AST。
 
-        Python2 曾经有一个compiler模块提供了可供用户扩展的emit API, 但不幸的是, 后来它被ast模块合并,
-        并被移除了最有意义的功能。
+    3. 原生AST和扩展AST结构编译到Python字节码。
+
+        Python本身提供了编译api, `compile`函数, 但只能将标准的AST编译到字节码。
+        为了将我们的三种扩展AST编译到字节码上，我们有两种选择。
+
+        第一种是, 将扩展的AST转换为标准的AST。因为Python是完备的语言, 所以类似语法糖的三种语法自然可以
+        直接转换成原生语法得以实现。
+
+        第二种是, 为扩展的AST实现字节码编译方法。如果只是对三种扩展AST实现编译方法，自然是容易的。但由于
+        Python3移除了可供用户扩展的编译模块, 只留下无法扩展的`compile`函数, 所以, 如果只是用纯Python,
+        还需要我们也为所有原生的Python AST实现字节码编译方法。
 
 
+- 关于实现:
 
+    利用[RBNF](https://github.com/thautwarm/RBNF)实现Python的Python parser, [grammar.py](https://github.com/thautwarm/kizmi/tree/master/kizmi/extended_python/grammar.py).

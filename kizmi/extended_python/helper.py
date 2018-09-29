@@ -3,6 +3,27 @@ from toolz import compose
 import ast
 import typing as t
 
+store = ast.Store()
+
+
+class AsStore(ast.NodeVisitor):
+    def _store(self, node):
+        node.ctx = store
+        self.generic_visit(node)
+
+    def visit_Name(self, node):
+        node.ctx = store
+
+    def visit_Subscript(self, node):
+        node.ctx = store
+
+    def visit_Attribute(self, node):
+        node.ctx = store
+
+    def _visit_seq(self, node):
+        node.ctx = store
+        self.generic_visit(node)
+
 
 class Loc:
     def __matmul__(self, other: t.Union[ast.AST, Tokenizer]):
@@ -15,6 +36,15 @@ class Loc:
 
 
 loc = Loc()
+
+_as_store = AsStore().visit
+
+
+def as_store(it):
+    if hasattr(it, '_fields'):
+        _as_store(it)
+        return it
+    return it
 
 
 def _parse_expr(token: Tokenizer):
@@ -94,8 +124,11 @@ def xor_expr_rewrite(head, tail):
     return head
 
 
-def and_expr_rewrite(seq):
-    return ast.BoolOp(ast.BitAnd(), seq)
+def and_expr_rewrite(head, tail):
+    if tail:
+        for op, each in tail:
+            head = ast.BinOp(head, ast.BitAnd(), each, **loc @ op)
+    return head
 
 
 def arith_expr_rewrite(head, tail):
@@ -138,7 +171,95 @@ def split_args_helper(arglist):
     keywords = []
     for each in arglist:
         if isinstance(each, ast.keyword):
-            positional.append(each)
-        else:
             keywords.append(each)
+        else:
+            positional.append(each)
+
     return positional, keywords
+
+
+def def_rewrite(mark: Tokenizer,
+                name: Tokenizer,
+                args: ast.arguments,
+                ret: ast.AST,
+                body: list,
+                is_async: bool = False):
+    name = name.value
+    ty = ast.AsyncFunctionDef if is_async else ast.FunctionDef
+    return ty(name, args, body, [], ret, **loc @ mark)
+
+
+def augassign_rewrite(it: Tokenizer):
+    return {
+        '+=': ast.Add,
+        '-=': ast.Sub,
+        '*=': ast.Mult,
+        '/=': ast.Div,
+        '//=': ast.FloorDiv,
+        '@=': ast.MatMult,
+        '%=': ast.Mod,
+        '&=': ast.BitAnd,
+        '|=': ast.BitOr,
+        '^=': ast.BitXor,
+        '<<=': ast.LShift,
+        '>>=': ast.RShift,
+        '**=': ast.Pow
+    }[it.value]
+
+
+def expr_stmt_rewrite(lhs, ann, aug, aug_exp, rhs: t.Optional[list]):
+
+    if rhs:
+        as_store(lhs)
+        *init, end = rhs
+        for each in init:
+            as_store(each)
+        return ast.Assign([lhs, *init], end)
+
+    if ann:
+        as_store(lhs)
+        anno, value = ann
+        return ast.AnnAssign(lhs, anno, value, 1)
+
+    if aug_exp:
+        as_store(lhs)
+        return ast.AugAssign(lhs, aug(), aug_exp)
+    return ast.Expr(lhs)
+
+
+def if_stmt_rewrite(marks, tests, bodies, orelse):
+    orelse = orelse or []
+    head = None
+    for mark, test, body, in reversed(tuple(zip(marks, tests, bodies))):
+        head = ast.If(test, body, orelse, **loc @ mark)
+        orelse = [head]
+    return head
+
+
+def while_stmt_rewrite(test, body, orelse):
+    orelse = orelse or []
+    return ast.While(test, body, orelse)
+
+
+def for_stmt_rewrite(target, iter, body, orelse, is_async=False):
+    orelse = orelse or []
+    as_store(target)
+    ty = ast.AsyncFor if is_async else ast.For
+    return ty(target, iter, body, orelse)
+
+
+def try_stmt_rewrite(mark, body, excs, rescues, orelse, final):
+    excs = excs or []
+    rescues = rescues or []
+
+    def handlers():
+        for (type, name), body in zip(excs, rescues):
+            yield ast.ExceptHandler(type, name, body)
+
+    return ast.Try(body, list(handlers()), orelse or [], final or [],
+                   **loc @ mark)
+
+
+def with_stmt_rewrite(mark, items, body, is_async=False):
+    ty = ast.AsyncWith if is_async else ast.With
+    return ty(items, body, **loc @ mark)
