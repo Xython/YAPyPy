@@ -14,7 +14,7 @@
 
 ## 实例二 为Python添加扩展语法
 
-见[kizmi/extended_python](https://github.com/thautwarm/kizmi/tree/master/kizmi/extended_python)
+见[extended-syntaxes-for-python](https://github.com/thautwarm/kizmi/tree/master/extended-syntaxes-for-python.md)
 
 该扩展建立在原生Python的编译组件上, 使用了[原生Python的文法](https://github.com/python/cpython/blob/master/Grammar/Grammar),
 以及原生CPython的lexer, 以及CPython虚拟机。
