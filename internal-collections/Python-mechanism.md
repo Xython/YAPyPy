@@ -1,4 +1,4 @@
-# Python底层原理基础
+# Python底层机理
 
 Python如何运行? Python在栈帧上解释code objects(`types.CodeType`)。
 
