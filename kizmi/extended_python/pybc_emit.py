@@ -27,10 +27,59 @@ class NestedUpFetchManager:
 
 
 def make_global_ctx():
-    return Context(Bytecode(), set(), set(), 0, parent=None)
+    return Context(Bytecode(), set(), set(), set(), 0, parent=None)
 
 
 class Context:
+    """
+    The context rules for python could be the second difficult part
+    in the whole emitter implementation(the most difficult is label offset calculating).
+
+    The behaviour of context inheritance is presented here
+    explicitly:
+
+    bytecode:
+        Each context holds its own bytecode stack.
+
+    locals:
+        Each context holds its own local variables.
+
+    nonlocals:
+        Each context holds it own nonlocal variables.
+        It donates the writable freevars.
+
+    globals_:
+        Each context holds it own globals variables.
+
+        Each global var could be visited in read-only mode
+        , while only explicitly marked global vars are writable.
+
+        P.S: when current context is the global one, each global
+        var is writable.
+        ```
+        def f():
+            global x
+            print(x) # print global var `x`
+            x = 1    # okay
+
+        def f():
+            print(x) # print global var
+
+        def f():
+            x = 1    # now x is local variable
+
+        def f():
+            print(x) # print local var `x`, however it's not defined yet.
+                     # NameError would be raised.
+            x = 1
+
+        ```
+
+    ctx_depth:
+        ctx.parent.ctx_depth + 1 = ctx.ctx_depth
+
+    """
+
     def __init__(self,
                  bytecode: Bytecode,
                  locals: set,
