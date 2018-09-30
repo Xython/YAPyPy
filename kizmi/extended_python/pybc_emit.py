@@ -142,10 +142,14 @@ def py_emit(node: ast.Pass, ctx: Context):
 @py_emit.case(ast.UnaryOp)
 def py_emit(node: ast.UnaryOp, ctx: Context):
     py_emit(node.value, ctx)
-    if isinstance(node.op,ast.Not):
-        ctx.bc.append(Instr('UNARY_NOT', lineno=node.lineno))
-    elif isinstance(node.op,ast.USub):
-        ctx.bc.append(Instr('UNARY_NEGATIVE', lineno=node.lineno))
+    inst = {
+        ast.Not: "UNARY_NOT",
+        ast.USub: "UNARY_NEGATIVE",
+        ast.UAdd: "UNARY_POSITIVE",
+        ast.Invert: "UNARY_INVERT"
+    }.get(type(node.op))
+    if inst:
+        ctx.bc.append(Instr(inst, lineno=node.lineno))
     else:
         raise TypeError("type mismatched")
 
@@ -154,20 +158,22 @@ def py_emit(node: ast.UnaryOp, ctx: Context):
 def py_emit(node: ast.BinOp, ctx: Context):
     py_emit(node.left, ctx)
     py_emit(node.right, ctx)
-    if isinstance(node.op,ast.Add):
-        ctx.bc.append(Instr('BINARY_ADD', lineno=node.lineno))
-    elif isinstance(node.op,ast.BitAnd):
-        ctx.bc.append(Instr('BINARY_AND', lineno=node.lineno))
-    elif isinstance(node.op, ast.Sub):
-        ctx.bc.append(Instr('BINARY_SUBTRACT', lineno=node.lineno))
-    elif isinstance(node.op, ast.FloorDiv):
-        ctx.bc.append(Instr('BINARY_FLOOR_DIVIDE', lineno=node.lineno))
-    elif isinstance(node.op, ast.BitXor):
-        ctx.bc.append(Instr('BINARY_XOR', lineno=node.lineno))
-    elif isinstance(node.op, ast.Mult):
-        ctx.bc.append(Instr('BINARY_MULTIPLY', lineno=node.lineno))
-    elif isinstance(node.op, ast.Mod):
-        ctx.bc.append(Instr('BINARY_MODULO', lineno=node.lineno))
+    inst = {
+        ast.Add: "BINARY_ADD",
+        ast.BitAnd: "BINARY_AND",
+        ast.Sub: "BINARY_SUBTRACT",
+        ast.Div: "BINARY_TRUE_DIVIDE",
+        ast.FloorDiv: "BINARY_FLOOR_DIVIDE",
+        ast.LShift: "BINARY_LSHIFT",
+        ast.RShift: "BINARY_RSHIFT",
+        ast.MatMult: "BINARY_MATRIX_MULTIPLY",
+        ast.Pow: "BINARY_POWER",
+        ast.BitOr: "BINARY_OR",
+        ast.BitXor: "BINARY_XOR",
+        ast.Mult: "BINARY_MULTIPLY",
+        ast.Mod: "BINARY_MODULO"
+    }.get(type(node.op))
+    if inst:
+        ctx.bc.append(Instr(inst, lineno=node.lineno))
     else:
         raise TypeError("type mismatched")
-
