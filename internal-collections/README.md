@@ -6,5 +6,5 @@
 - [Python底层机理](./Python-mechanism.md)
 
     code object结构, 字节码, 作用域, 特殊code object行为(generator, coroutine等)
-    
+
 

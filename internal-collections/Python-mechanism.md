@@ -96,7 +96,7 @@ def f(x):
 
 >
 Name:              f
-Filename:          <ipython-input-3-c8a9027a7ab2>
+Filename:          ...
 Argument count:    1
 Kw-only arguments: 0
 Number of locals:  1
@@ -124,7 +124,7 @@ def f(x):
 
 >
 Name:              g
-Filename:          <ipython-input-19-725076c6f0b6>
+Filename:          ...
 Argument count:    1
 Kw-only arguments: 0
 Number of locals:  1
@@ -151,7 +151,7 @@ def f(x):
 
 >
 Name:              f
-Filename:          <ipython-input-20-97db51fab58c>
+Filename:          ...
 Argument count:    1
 Kw-only arguments: 0
 Number of locals:  1
@@ -178,4 +178,82 @@ def f(x):
               4 BINARY_ADD
               6 RETURN_VALUE
 
+```
+
+
+- NESTED
+
+即嵌套作用域。如果一个函数被定义在其他函数内部，它就具有NESTED code flag.
+
+- COROUTINE
+
+使用async定义的函数能在编译期被确定是否具有 COROUTINE flag。
+使用`types.coroutine`做函数装饰器能在运行时创建一个新的函数, 具有COROUTINE flag.
+
+```python
+@dis.show_code
+async def f():
+   return 1
+>
+...
+Flags:             OPTIMIZED, NEWLOCALS, NOFREE, COROUTINE
+...
+```
+
+- GENERATOR
+
+```python
+@dis.show_code
+def f():
+   yield 1
+
+...
+Flags:             OPTIMIZED, NEWLOCALS, GENERATOR, NOFREE
+...
+```
+
+
+- VARARGS
+
+指示对应函数具有不定参数，例如:
+
+```python
+def f(*args):
+   return args
+
+print(f(1, 2, 3))
+> (1, 2, 3)
+```
+
+
+- VARKEYWORDS
+
+指示对应函数具有字典打包参数(多叙述为keyword arguments, kwargs)
+```
+def f(**kwargs):
+    return kwargs
+
+print(f(a=1, b=2))
+> {'a': 1, 'b': 2}
+```
+
+
+
+### 关于NoFree, Nested, cell vars, free vars, global vars, closure
+
+```
+- 顶层模块(加载变量: LOAD_GLOBAL, 存储变量: STORE_GLOABL)
+
+    - 顶层模块的函数(作用域)
+        co_flags |= NoFree ;
+
+        被其内部作用域需要的自由变量是该函数的cell vars;
+
+        - 内部函数
+
+           co_flags |= Nested;
+           来自于上层函数的自由变量是该函数的free vars;
+
+        创建内部函数时, 需要使用LOAD_CLOSURE对内部函数需要的
+        所有来自于当前作用域的自由变量加载闭包;
 ```
