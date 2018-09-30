@@ -172,10 +172,11 @@ class MyData:
         return True, ('a', 'b')
 
  match 1:
-    as MyData      : print(None)
-    as MyData(a)   : print(a)
-    as MyData(a, b): print(a, b)
-    else           : pass
+    MyData      : print(None)
+    MyData(a)   : print(a)
+    MyData(a, b): print(a, b)
+    else        : pass
+
 # 语义上等价于
 
 test = 1
