@@ -149,8 +149,13 @@ from my_data import S
 match S(1, 2) as S(a, b) # Python的编译期我们无法拿到有关S的任何信息, 也就不知道如何做静态匹配。
 ```
 
-受到一些先驱工作(http://coconut-lang.org, https://github.com/jargonjustin/matchlib, https://mail.python.org/pipermail/python-ideas/2015-April/032922.html)的启发, 我们可以使用一种
-协议方法`__matchN__`来做开销相对很少的动态模式匹配:
+受到一些先驱工作的启发:
+
+- http://coconut-lang.org
+- https://github.com/jargonjustin/matchlib
+- https://mail.python.org/pipermail/python-ideas/2015-April/032922.html
+
+我们可以使用一种协议方法`__matchN__`来做开销相对很少的动态模式匹配:
 
 ```python
 class MyData:
