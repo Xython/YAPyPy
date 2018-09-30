@@ -26,29 +26,37 @@ class NestedUpFetchManager:
                                     name in self.ctx.parent.available_symbols)
 
 
+def make_global_ctx():
+    return Context(Bytecode(), set(), set(), 0, parent=None)
+
+
 class Context:
     def __init__(self,
                  bytecode: Bytecode,
                  locals: set,
                  nonlocals: set,
+                 globals_: set,
                  ctx_depth: int,
                  parent: 'Context' = None):
         self.parent = parent or None
         self.bc = bytecode
         self.locals = locals
         self.nonlocals = nonlocals
+        self.globals_ = globals_
         self.ctx_depth = ctx_depth
 
     def lens(self,
              bc=None,
              locals=None,
              nonlocals=None,
+             globals_=None,
              parent=None,
              ctx_depth=None):
         return Context(
             bytecode=bc or self.bc,
             locals=locals or self.locals,
             nonlocals=nonlocals or self.nonlocals,
+            globals_=globals_ or self.globals_,
             ctx_depth=ctx_depth or self.ctx_depth,
             parent=parent or self.parent)
 
@@ -96,6 +104,23 @@ class Context:
         else:
             self.bc.append(Instr('LOAD_GLOBAL', id, lineno=node.lineno))
 
+    def store_name(self, node: ast.Name):
+        id = node.id
+        if id in self:
+            if id not in self.bc.cellvars:
+                self.bc.append(Instr("STORE_FAST", id, lineno=node.lineno))
+            else:
+                self.bc.append(
+                    Instr('STORE_DEREF', CellVar('id'), lineno=node.lineno))
+            return
+        if id in self.available_symbols and id in self.nonlocals:
+            self.bc.append(
+                Instr('STORE_DEREF', FreeVar(id), lineno=node.lineno))
+        elif id in self.globals_:
+            self.bc.append(Instr("STORE_GLOBAL", id, lineno=node.lineno))
+        else:
+            raise NameError(f'name `{node.id}` not found.')
+
 
 @Pattern
 def py_emit(node: ast.AST, ctx: Context):
@@ -142,9 +167,9 @@ def py_emit(node: ast.Pass, ctx: Context):
 @py_emit.case(ast.UnaryOp)
 def py_emit(node: ast.UnaryOp, ctx: Context):
     py_emit(node.value, ctx)
-    if isinstance(node.op,ast.Not):
+    if isinstance(node.op, ast.Not):
         ctx.bc.append(Instr('UNARY_NOT', lineno=node.lineno))
-    elif isinstance(node.op,ast.USub):
+    elif isinstance(node.op, ast.USub):
         ctx.bc.append(Instr('UNARY_NEGATIVE', lineno=node.lineno))
     else:
         raise TypeError("type mismatched")
@@ -154,9 +179,9 @@ def py_emit(node: ast.UnaryOp, ctx: Context):
 def py_emit(node: ast.BinOp, ctx: Context):
     py_emit(node.left, ctx)
     py_emit(node.right, ctx)
-    if isinstance(node.op,ast.Add):
+    if isinstance(node.op, ast.Add):
         ctx.bc.append(Instr('BINARY_ADD', lineno=node.lineno))
-    elif isinstance(node.op,ast.BitAnd):
+    elif isinstance(node.op, ast.BitAnd):
         ctx.bc.append(Instr('BINARY_AND', lineno=node.lineno))
     elif isinstance(node.op, ast.Sub):
         ctx.bc.append(Instr('BINARY_SUBTRACT', lineno=node.lineno))
@@ -170,4 +195,3 @@ def py_emit(node: ast.BinOp, ctx: Context):
         ctx.bc.append(Instr('BINARY_MODULO', lineno=node.lineno))
     else:
         raise TypeError("type mismatched")
-
