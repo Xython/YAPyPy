@@ -42,6 +42,9 @@
     利用[RBNF](https://github.com/thautwarm/RBNF)实现Python的Python parser, [grammar.py](https://github.com/thautwarm/kizmi/tree/master/kizmi/extended_python/grammar.py).
 
 - 使用:
+
     1. 执行代码: python-ex run -c <code>
+
     2. 执行文件: python-ex run <filename>
+
     3. 编译文件: python-ex compile <filename1> <filename2> ...
