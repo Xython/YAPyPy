@@ -67,13 +67,13 @@ import_name ::= mark='import' names=dotted_as_names                             
 import_level::= (_1='.' | '...')                                                                              -> 1 if _1 else 3                                                           
 wild        ::= '*'                                                                                           -> [alias(name='*', asname=None)]
 import_from ::= (mark='from' (levels=('.' | '...')* module=dotted_name | levels=('.' | '...')+)               # ------------------------------
-                 'import' (wild='*' | '(' names=import_as_names ')' | names=import_as_names))                 -> ImportFrom(module, wild or names, sum(levels or []), **loc @ mark)                           
+                 'import' (wild=wild | '(' names=import_as_names ')' | names=import_as_names))                 -> ImportFrom(module, wild or names, sum(levels or []), **loc @ mark)                           
 NAMESTR        ::= n=NAME                                                                                     -> n.value         
 import_as_name ::= name=NAMESTR ['as' asname=NAMESTR]                                                         -> alias(name, asname)
 dotted_as_name ::= name=dotted_name ['as' asname=NAMESTR]                                                     -> alias(name, asname) 
 import_as_names::= seq<<import_as_name (',' seq<<import_as_name)* [',']                                       -> seq
 dotted_as_names::= seq<<dotted_as_name (',' seq<<dotted_as_name)*                                             -> seq
-dotted_name    ::= xs=(NAME ('.' NAME)*)                                                                      -> '.'.join(c.value for c in xs) 
+dotted_name    ::= xs=(NAME ('.' NAME)*)                                                                      -> ''.join(c.value for c in xs)
 global_stmt    ::= mark='global' names<<NAMESTR (',' name<<NAMESTR)*                                          -> Global(names, **loc @ mark)                                                         
 nonlocal_stmt  ::= mark='nonlocal' names<<NAMESTR (',' name<<NAMESTR)*                                        -> Nonlocal(names, **loc @ mark)
 assert_stmt    ::= mark='assert' test=test [',' msg=test]                                                     -> Assert(test, msg, **loc @ mark)
@@ -202,15 +202,16 @@ classdef ::= mark='class' name=NAME ['(' [arglist=arglist] ')'] ':' suite=suite
 
 arglist   ::= seq<<argument (',' seq<<argument)*  [','] -> seq
 
-argument  ::= ( arg=test [comp=comp_for] |
-                key=test '=' value=test |
+argument  ::= ( 
+                key=NAME '=' value=test |
+                arg=test [comp=comp_for] |
                 mark='**' kwargs=test |
                 mark='*'  args=test )
                 -> 
-                  Starred(**(loc @ mark), value=args, ctx=Load()) if args else  \
-                  keyword(**(loc @ mark), arg=None, value=kwargs) if kwargs else\
-                  keyword(**(loc @ key), arg=key, value=value)    if key else   \
-                  GeneratorExp(arg, comp)                         if comp else  \
+                  Starred(**(loc @ mark), value=args, ctx=Load())    if args else  \
+                  keyword(**(loc @ mark), arg=None, value=kwargs)    if kwargs else\
+                  keyword(**(loc @ key), arg=key.value, value=value) if key else   \
+                  GeneratorExp(arg, comp)                            if comp else  \
                   arg
 
 comp_for_item ::= [is_async='async'] 'for' target=exprlist 'in' iter=or_test ('if' ifs<<test_nocond)* 

@@ -134,8 +134,11 @@ def and_expr_rewrite(head, tail):
 def arith_expr_rewrite(head, tail):
     if tail:
         for op, each in tail:
-            op = {'+': ast.Add, '-': ast.Sub}[op.value]()
-            head = ast.BinOp(head, op, each, **loc @ op)
+
+            head = ast.BinOp(head, {
+                '+': ast.Add,
+                '-': ast.Sub
+            }[op.value](), each, **loc @ op)
     return head
 
 

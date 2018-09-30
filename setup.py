@@ -18,8 +18,13 @@ setup(
     url='https://github.com/thautwarm/kizmi',
     author='thautwarm',
     author_email='twshere@outlook.com',
-    packages=['kizmi', 'kizmi.cmd', 'kizmi.database'],
-    entry_points={'console_scripts': ['dbg=kizmi.cmd.cli:main']},
+    packages=['kizmi', 'kizmi.cmd', 'kizmi.database', 'kizmi.extended_python'],
+    entry_points={
+        'console_scripts': [
+            'dbg=kizmi.cmd.cli:dbg_lang_cli',
+            'python-ex=kizmi.cmd.cli:python_ex_cli'
+        ]
+    },
     install_requires=[
         'Redy', 'rbnf>=0.3.21', 'wisepy', 'bytecode==0.7.0', 'toolz'
     ],

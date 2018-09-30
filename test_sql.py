@@ -1,5 +1,5 @@
-from kizmi.cmd.dbg_grammar import *
-from kizmi.cmd.emit import *
+from kizmi.database.dbg_grammar import *
+from kizmi.database.dbg_emit import *
 from rbnf.edsl.rbnf_analyze import check_parsing_complete
 
 test_code = """

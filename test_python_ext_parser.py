@@ -1,5 +1,6 @@
 from kizmi.extended_python.parser import parse
 mod = parse(r"""    
+
 class G:
     @property
     def a(self):
@@ -7,8 +8,12 @@ class G:
 
 def f():
     print(G().a)
+    
+def g(x=1):
+    print(x + 2)
 
 f()
+g(x=1)
 """).result
 
 code = compile(mod, "test", "exec")

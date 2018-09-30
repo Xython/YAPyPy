@@ -2,7 +2,7 @@ from kizmi.database.types import *
 import kizmi.database.infrastructure as db
 import builtins
 engine = db.create_engine(
-    "mysql+pymysql://root:12345@localhost/aisql?charset=utf8",
+    "mysql+pymysql://root:12345@localhost/test?charset=utf8",
     convert_unicode=True,
 )
 __session__ = db.scoped_session(

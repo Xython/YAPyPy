@@ -1,4 +1,4 @@
-from kizmi.cmd import dbg_ast
+from kizmi.database import dbg_ast
 from rbnf.easy import Language, build_parser, build_language
 source_code = """
 import std.common.[Name Comment DoubleQuotedStr]
