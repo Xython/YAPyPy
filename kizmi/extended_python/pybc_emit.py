@@ -2,6 +2,7 @@ import ast
 from Redy.Magic.Pattern import Pattern
 from bytecode import *
 from bytecode.concrete import FreeVar, CellVar
+from bytecode.flags import CompilerFlags
 
 
 class NonlocalManager:
@@ -109,6 +110,17 @@ class Context:
             ctx_depth=ctx_depth or self.ctx_depth,
             parent=parent or self.parent)
 
+    def into(self, name: str):
+        ctx = self.lens(
+            bc=Bytecode(),
+            locals=set(),
+            nonlocals=set(),
+            globals_=set(),
+            ctx_depth=self.ctx_depth + 1,
+            parent=self)
+        ctx.bc.name = name
+        return ctx
+
     def fix_bytecode(self):
         bc = self.bc
         for each in bc:
@@ -172,50 +184,118 @@ class Context:
 
 
 @Pattern
-def py_emit(node: ast.AST, ctx: Context):
+def py_expr_emit(node: ast.AST, ctx: Context):
     return type(node)
 
 
-@py_emit.case(ast.Name)
-def py_emit(node: ast.Name, ctx: Context):
+@Pattern
+def py_stmt_emit(node: ast.AST, ctx: Context):
+
+    return type(node)
+
+
+@py_stmt_emit.case(ast.FunctionDef)
+async def py_stmt_emit(node: ast.FunctionDef, ctx: Context):
+    """
+    https://docs.python.org/3/library/dis.html#opcode-MAKE_FUNCTION
+    MAKE_FUNCTION flags:
+    0x01 a tuple of default values for positional-only and positional-or-keyword parameters in positional order
+    0x02 a dictionary of keyword-only parameters’ default values
+    0x04 an annotation dictionary
+    0x08 a tuple containing cells for free variables, making a closure
+    the code associated with the function (at TOS1)
+    the qualified name of the function (at TOS)
+
+    """
+    ctx += node.name
+
+    await ctx.declaring()
+    args = node.args
+    make_function_flags = 0
+    if args.defaults:
+        make_function_flags |= 0x01
+    if args.kw_defaults:
+        make_function_flags |= 0x02
+
+    ## make annotations
+    annotations = []
+    for arg in args.args:
+        if arg.annotation:
+            annotations.append((arg.arg, arg.annotation))
+
+    for arg in args.kwonlyargs:
+        if arg.annotation:
+            annotations.append((arg.arg, arg.annotation))
+    arg = args.vararg
+    if arg and arg.annotation:
+        annotations.append((arg.arg, arg.annotation))
+
+    arg = args.kwarg
+    if arg and arg.annotation:
+        annotations.append((arg.arg, arg.annotation))
+
+    if any(annotations):
+        make_function_flags |= 0x04
+
+    new_ctx = ctx.into(node.name)
+
+    for positional_arg in node.args.args:
+        new_ctx += positional_arg.arg
+
+    new_ctx.bc.flags |= CompilerFlags.NEWLOCALS  # always?
+    # I didn't find related documents, so this is a tentative workaround.
+
+    if new_ctx.ctx_depth > 1:
+        # ctx_depth is 0 => global context
+        # ctx_depth is 1 => unnested function
+        new_ctx.bc.flags |= CompilerFlags.NESTED
+    else:
+        # functions that could only be accessed as global variables.
+        new_ctx.bc.flags |= CompilerFlags.NOFREE
+
+    raise NotImplemented
+
+
+@py_expr_emit.case(ast.Name)
+def py_expr_emit(node: ast.Name, ctx: Context):
     ctx.load_name(node)
 
 
-@py_emit.case(ast.Expr)
-def py_emit(node: ast.Expr, ctx: Context):
-    py_emit(node, ctx)
+@py_expr_emit.case(ast.Expr)
+def py_expr_emit(node: ast.Expr, ctx: Context):
+    py_expr_emit(node, ctx)
     ctx.bc.append('POP_TOP')
 
 
-@py_emit.case(ast.YieldFrom)
-def py_emit(node: ast.YieldFrom, ctx: Context):
+@py_expr_emit.case(ast.YieldFrom)
+def py_expr_emit(node: ast.YieldFrom, ctx: Context):
     append = ctx.bc.append
-    py_emit(node.value, ctx)
+    py_expr_emit(node.value, ctx)
     append(Instr('GET_YIELD_FROM_ITER', lineno=node.lineno))
     append(Instr('LOAD_CONST', None, lineno=node.lineno))
     append(Instr("YIELD_FROM", lineno=node.lineno))
 
 
-@py_emit.case(ast.Yield)
-def py_emit(node: ast.Yield, ctx: Context):
-    py_emit(node.value)
+@py_expr_emit.case(ast.Yield)
+def py_expr_emit(node: ast.Yield, ctx: Context):
+    py_expr_emit(node.value)
     ctx.bc.append(Instr('YIELD_VALUE', lineno=node.lineno))
 
 
-@py_emit.case(ast.Return)
-def py_emit(node: ast.Return, ctx: Context):
-    py_emit(node.value)
+@py_expr_emit.case(ast.Return)
+def py_expr_emit(node: ast.Return, ctx: Context):
+    py_expr_emit(node.value)
     ctx.bc.append(Instr('RETURN_VALUE', lineno=node.lineno))
 
 
-@py_emit.case(ast.Pass)
-def py_emit(node: ast.Pass, ctx: Context):
+@py_expr_emit.case(ast.Pass)
+def py_expr_emit(node: ast.Pass, ctx: Context):
     pass
 
 
-@py_emit.case(ast.UnaryOp)
-def py_emit(node: ast.UnaryOp, ctx: Context):
-    py_emit(node.value, ctx)
+@py_expr_emit.case(ast.UnaryOp)
+def py_expr_emit(node: ast.UnaryOp, ctx: Context):
+    py_expr_emit(node.value, ctx)
     inst = {
         ast.Not: "UNARY_NOT",
         ast.USub: "UNARY_NEGATIVE",
@@ -228,10 +308,10 @@ def py_emit(node: ast.UnaryOp, ctx: Context):
         raise TypeError("type mismatched")
 
 
-@py_emit.case(ast.BinOp)
-def py_emit(node: ast.BinOp, ctx: Context):
-    py_emit(node.left, ctx)
-    py_emit(node.right, ctx)
+@py_expr_emit.case(ast.BinOp)
+def py_expr_emit(node: ast.BinOp, ctx: Context):
+    py_expr_emit(node.left, ctx)
+    py_expr_emit(node.right, ctx)
     inst = {
         ast.Add: "BINARY_ADD",
         ast.BitAnd: "BINARY_AND",
