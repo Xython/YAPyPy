@@ -126,3 +126,48 @@ def py_emit(node: ast.YieldFrom, ctx: Context):
 def py_emit(node: ast.Yield, ctx: Context):
     py_emit(node.value)
     ctx.bc.append(Instr('YIELD_VALUE', lineno=node.lineno))
+
+
+@py_emit.case(ast.Return)
+def py_emit(node: ast.Return, ctx: Context):
+    py_emit(node.value)
+    ctx.bc.append(Instr('RETURN_VALUE', lineno=node.lineno))
+
+
+@py_emit.case(ast.Pass)
+def py_emit(node: ast.Pass, ctx: Context):
+    pass
+
+
+@py_emit.case(ast.UnaryOp)
+def py_emit(node: ast.UnaryOp, ctx: Context):
+    py_emit(node.value, ctx)
+    if isinstance(node.op,ast.Not):
+        ctx.bc.append(Instr('UNARY_NOT', lineno=node.lineno))
+    elif isinstance(node.op,ast.USub):
+        ctx.bc.append(Instr('UNARY_NEGATIVE', lineno=node.lineno))
+    else:
+        raise TypeError("type mismatched")
+
+
+@py_emit.case(ast.BinOp)
+def py_emit(node: ast.BinOp, ctx: Context):
+    py_emit(node.left, ctx)
+    py_emit(node.right, ctx)
+    if isinstance(node.op,ast.Add):
+        ctx.bc.append(Instr('BINARY_ADD', lineno=node.lineno))
+    elif isinstance(node.op,ast.BitAnd):
+        ctx.bc.append(Instr('BINARY_AND', lineno=node.lineno))
+    elif isinstance(node.op, ast.Sub):
+        ctx.bc.append(Instr('BINARY_SUBTRACT', lineno=node.lineno))
+    elif isinstance(node.op, ast.FloorDiv):
+        ctx.bc.append(Instr('BINARY_FLOOR_DIVIDE', lineno=node.lineno))
+    elif isinstance(node.op, ast.BitXor):
+        ctx.bc.append(Instr('BINARY_XOR', lineno=node.lineno))
+    elif isinstance(node.op, ast.Mult):
+        ctx.bc.append(Instr('BINARY_MULTIPLY', lineno=node.lineno))
+    elif isinstance(node.op, ast.Mod):
+        ctx.bc.append(Instr('BINARY_MODULO', lineno=node.lineno))
+    else:
+        raise TypeError("type mismatched")
+
