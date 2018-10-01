@@ -1,5 +1,4 @@
 from rbnf.core.Tokenizer import Tokenizer
-from toolz import compose
 import ast
 import typing as t
 
