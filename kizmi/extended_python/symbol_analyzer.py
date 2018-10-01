@@ -88,12 +88,18 @@ class SymTable(INamedList, metaclass=trait(as_namedlist)):
         return freevars
 
     def resolve_cellvars(self):
+        def fetched_from_outside(sym_tb: SymTable):
+            return sym_tb.analyzed.freevars.union(
+                analyzed.borrowed_cellvars,
+                *(fetched_from_outside(each.analyze())
+                  for each in sym_tb.children))
+
         analyzed = self.analyzed
         cellvars = analyzed.cellvars
         bounds = analyzed.bounds
         borrowed_cellvars = analyzed.borrowed_cellvars
-        requires_from_sub_contexts = set.union(
-            set(), *(each.analyze().freevars for each in self.children))
+
+        requires_from_sub_contexts = fetched_from_outside(self)
 
         cellvars.update(requires_from_sub_contexts.intersection(bounds))
         borrowed_cellvars.update(requires_from_sub_contexts - cellvars)
@@ -102,19 +108,18 @@ class SymTable(INamedList, metaclass=trait(as_namedlist)):
 
     def analyze(self):
         if self.analyzed:
-            return self.analyzed
+            return self
         if self.depth is 0:
             # global context
-            analyzed = self.analyzed = AnalyzedSymTable(
-                set(), set(), set(), set())
+            self.analyzed = AnalyzedSymTable(set(), set(), set(), set())
             for each in self.children:
                 each.analyze()
-            return analyzed
+            return self
         else:
             self.resolve_bounds()
             self.resolve_freevars()
             self.resolve_cellvars()
-            return self.analyzed
+            return self
 
     def show_resolution(self):
         def show_resolution(this):
