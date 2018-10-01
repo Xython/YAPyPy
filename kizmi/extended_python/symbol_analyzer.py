@@ -8,6 +8,7 @@ class AnalyzedSymTable(NamedTuple):
     bounds: Optional[set]
     freevars: Optional[set]
     cellvars: Optional[set]
+    borrowed_cellvars: Optional[set]
 
 
 class SymTable(INamedList, metaclass=trait(as_namedlist)):
@@ -57,10 +58,8 @@ class SymTable(INamedList, metaclass=trait(as_namedlist)):
         return new
 
     def can_resolve_by_parents(self, symbol: str):
-        parent = self.parent
-
-        return parent and (symbol in parent.analyzed.bounds or parent.parent
-                           and parent.parent.can_resolve_by_parents(symbol))
+        return (symbol in self.analyzed.bounds
+                or self.parent and self.parent.can_resolve_by_parents(symbol))
 
     def resolve_bounds(self):
         enters = self.entered
@@ -71,7 +70,7 @@ class SymTable(INamedList, metaclass=trait(as_namedlist)):
             for each in enters
             if each not in nonlocals and each not in globals_
         }
-        self.analyzed = AnalyzedSymTable(bounds, set(), set())
+        self.analyzed = AnalyzedSymTable(bounds, set(), set(), set())
         return bounds
 
     def resolve_freevars(self):
@@ -82,19 +81,23 @@ class SymTable(INamedList, metaclass=trait(as_namedlist)):
         freevars.update(
             nonlocals.union({
                 each
-                for each in requires if self.can_resolve_by_parents(each)
+                for each in requires
+                if self.parent.can_resolve_by_parents(each)
             }))
+
         return freevars
 
     def resolve_cellvars(self):
         analyzed = self.analyzed
         cellvars = analyzed.cellvars
-        cellvars.update(
-            set.union(set(),
-                      *(each.analyze().freevars
-                        for each in self.children)).intersection(
-                            analyzed.bounds))
-        analyzed.bounds.difference_update(cellvars)
+        bounds = analyzed.bounds
+        borrowed_cellvars = analyzed.borrowed_cellvars
+        requires_from_sub_contexts = set.union(
+            set(), *(each.analyze().freevars for each in self.children))
+
+        cellvars.update(requires_from_sub_contexts.intersection(bounds))
+        borrowed_cellvars.update(requires_from_sub_contexts - cellvars)
+        bounds.difference_update(cellvars)
         return cellvars
 
     def analyze(self):
@@ -102,7 +105,8 @@ class SymTable(INamedList, metaclass=trait(as_namedlist)):
             return self.analyzed
         if self.depth is 0:
             # global context
-            analyzed = self.analyzed = AnalyzedSymTable(set(), set(), set())
+            analyzed = self.analyzed = AnalyzedSymTable(
+                set(), set(), set(), set())
             for each in self.children:
                 each.analyze()
             return analyzed
@@ -155,28 +159,56 @@ def _visit_nonlocal(self, node: ast.Nonlocal):
     return node
 
 
+def visit_suite(visit_fn, suite: list):
+    return [visit_fn(each) for each in suite]
+
+
 def _visit_fn_def(self: 'ASTTagger',
                   node: Union[ast.FunctionDef, ast.AsyncFunctionDef]):
     self.symtable.entered.add(node.name)
+    args = node.args
+    visit_suite(self.visit, node.decorator_list)
+    visit_suite(self.visit, args.defaults)
+    visit_suite(self.visit, args.kw_defaults)
 
-    for each in node.decorator_list:
-        self.visit(each)
-
-    self.visit(node.args)
     if node.returns:
         node.returns = self.visit(node.returns)
 
     new = self.symtable.enter_new()
 
-    new_tagger = ASTTagger(new)
+    arguments = args.args + args.kwonlyargs
+    if args.vararg:
+        arguments.append(args.vararg)
+    if args.kwarg:
+        arguments.append(args.kwarg)
+    for arg in arguments:
+        annotation = arg.annotation
+        if annotation:
+            self.visit(annotation)
+        new.entered.add(arg.arg)
 
+    new_tagger = ASTTagger(new)
     node.body = [Tag(new_tagger.visit(each), new) for each in node.body]
     return node
 
 
 def _visit_lam(self: 'ASTTagger', node: ast.Lambda):
-    self.visit(node.args)
+    args = node.args
     new = self.symtable.enter_new()
+
+    arguments = args.args + args.kwonlyargs
+    if args.vararg:
+        arguments.append(args.vararg)
+    if args.kwarg:
+        arguments.append(args.kwarg)
+    for arg in arguments:
+
+        # lambda might be able to annotated in the future?
+        annotation = arg.annotation
+        if annotation:
+            self.visit(annotation)
+        new.entered.add(arg.arg)
+
     new_tagger = ASTTagger(new)
     node.body = Tag(new_tagger.visit(node.body), new)
     return node
@@ -199,15 +231,21 @@ class ASTTagger(ast.NodeTransformer):
 if __name__ == '__main__':
     import ast
 
-    mod = ast.parse("""
+    mod = ("""
 def f():
     x = 1
     def g(y):
         t + y
-        x + d
+        def z():
+            # add some borrowed cellvars to g 
+            x + d
     d = 2
     """)
+    print(mod)
+    mod = ast.parse(mod)
+
     g = SymTable.global_context()
     ASTTagger(g).visit(mod)
+
     g.analyze()
     print(g.show_resolution())
