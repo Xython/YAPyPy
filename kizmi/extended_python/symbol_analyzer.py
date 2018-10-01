@@ -131,9 +131,17 @@ class SymTable(INamedList, metaclass=trait(as_namedlist)):
         return pformat(show_resolution(self))
 
 
-class Tag(NamedTuple):
+class Tag(ast.AST):
     it: ast.AST
     tag: SymTable
+
+    def __init__(self, it, tag):
+        self.it = it
+        self.tag = tag
+
+
+class Suite(ast.AST, NamedTuple):
+    stmts: List[ast.stmt]
 
 
 def _visit_name(self, node: ast.Name):
@@ -170,6 +178,7 @@ def visit_suite(visit_fn, suite: list):
 
 def _visit_fn_def(self: 'ASTTagger',
                   node: Union[ast.FunctionDef, ast.AsyncFunctionDef]):
+
     self.symtable.entered.add(node.name)
     args = node.args
     visit_suite(self.visit, node.decorator_list)
@@ -193,8 +202,8 @@ def _visit_fn_def(self: 'ASTTagger',
         new.entered.add(arg.arg)
 
     new_tagger = ASTTagger(new)
-    node.body = [Tag(new_tagger.visit(each), new) for each in node.body]
-    return node
+    node.body = [new_tagger.visit(each) for each in node.body]
+    return Tag(node, new)
 
 
 def _visit_lam(self: 'ASTTagger', node: ast.Lambda):
@@ -215,8 +224,8 @@ def _visit_lam(self: 'ASTTagger', node: ast.Lambda):
         new.entered.add(arg.arg)
 
     new_tagger = ASTTagger(new)
-    node.body = Tag(new_tagger.visit(node.body), new)
-    return node
+    node.body = new_tagger.visit(node.body)
+    return Tag(node, new)
 
 
 class ASTTagger(ast.NodeTransformer):
@@ -231,6 +240,13 @@ class ASTTagger(ast.NodeTransformer):
     visit_FunctionDef = _visit_fn_def
     visit_AsyncFunctionDef = _visit_fn_def
     visit_Lambda = _visit_lam
+
+
+def to_tagged_ast(node: ast.Module):
+    g = SymTable.global_context()
+    node = Tag(ASTTagger(g).visit(node), g)
+    g.analyze()
+    return node
 
 
 if __name__ == '__main__':

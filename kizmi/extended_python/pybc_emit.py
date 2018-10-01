@@ -1,6 +1,6 @@
 import ast
 from typing import NamedTuple
-from kizmi.extended_python.symbol_analyzer import SymTable, Tag
+from kizmi.extended_python.symbol_analyzer import SymTable, Tag, Suite
 from kizmi.utils.namedlist import INamedList, as_namedlist, trait
 from Redy.Magic.Pattern import Pattern
 from bytecode import *
@@ -14,6 +14,10 @@ class IndexedAnalyzedSymTable(NamedTuple):
     cellvars: list
     borrowed_cellvars: list
 
+    @classmethod
+    def from_raw(cls, tb):
+        return cls(*[list(each) for each in tb.analyzed])
+
 
 class Context(INamedList, metaclass=trait(as_namedlist)):
     bc: Bytecode
@@ -26,10 +30,7 @@ class Context(INamedList, metaclass=trait(as_namedlist)):
                        parent if parent is not None else self.parent)
 
     def enter_new(self, tag_table: SymTable):
-
-        sym_tb = IndexedAnalyzedSymTable(
-            *[list(each) for each in tag_table.analyzed])
-
+        sym_tb = IndexedAnalyzedSymTable.from_raw(tag_table)
         bc = Bytecode()
         if tag_table.depth > 1:
             bc.flags |= CompilerFlags.NESTED
@@ -45,12 +46,12 @@ class Context(INamedList, metaclass=trait(as_namedlist)):
     def load_name(self, name, lineno=None):
         sym_tb = self.sym_tb
         if name in sym_tb.cellvars:
-            return Instr('LOAD_DEREF', CellVar(name), lineno=lineno)
+            self.bc.append(Instr('LOAD_DEREF', CellVar(name), lineno=lineno))
         elif name in sym_tb.freevars:
-            return Instr('LOAD_DEREF', FreeVar(name), lineno=lineno)
+            self.bc.append(Instr('LOAD_DEREF', FreeVar(name), lineno=lineno))
         elif name in sym_tb.bounds:
-            return Instr('LOAD_FAST', name, lineno=lineno)
-        return Instr("LOAD_GLOBAL", name, lineno=lineno)
+            self.bc.append(Instr('LOAD_FAST', name, lineno=lineno))
+        self.bc.append(Instr("LOAD_GLOBAL", name, lineno=lineno))
 
     def store_name(self, name, lineno=None):
         sym_tb = self.sym_tb
@@ -60,7 +61,7 @@ class Context(INamedList, metaclass=trait(as_namedlist)):
             self.bc.append(Instr('STORE_DEREF', FreeVar(name), lineno=lineno))
         elif name in sym_tb.bounds:
             self.bc.append(Instr('STORE_FAST', name, lineno=lineno))
-        return Instr("STORE_GLOBAL", name, lineno=lineno)
+        self.bc.append(Instr("STORE_GLOBAL", name, lineno=lineno))
 
     def load_closure(self, lineno=None):
         parent = self.parent
@@ -78,6 +79,12 @@ class Context(INamedList, metaclass=trait(as_namedlist)):
             parent.bc.append(Instr('BUILD_TUPLE', len(freevars)))
 
 
+def py_compile(node: Tag):
+    ctx = Context(Bytecode(), IndexedAnalyzedSymTable.from_raw(node.tag), None)
+    py_emit(node.it, ctx)
+    return ctx.bc.to_code()
+
+
 @Pattern
 def py_emit(node: ast.AST, ctx: Context):
     return type(node)
@@ -85,8 +92,20 @@ def py_emit(node: ast.AST, ctx: Context):
 
 @py_emit.case(Tag)
 def py_emit(node: Tag, ctx: Context):
-    new_ctx = ctx.enter_new(node.tag)
-    return py_emit(node.it, new_ctx)
+    ctx = ctx.enter_new(node.tag)
+    py_emit(node.it, ctx)
+
+
+@py_emit.case(ast.Module)
+def py_emit(node: ast.Module, ctx: Context):
+    for each in node.body:
+        py_emit(each, ctx)
+
+
+@py_emit.case(Suite)
+def py_emit(node: Suite, ctx: Context):
+    for each in node.stmts:
+        py_emit(each, ctx)
 
 
 @py_emit.case(ast.FunctionDef)
@@ -102,33 +121,84 @@ def py_emit(node: ast.FunctionDef, new_ctx: Context):
     the qualified name of the function (at TOS)
 
     """
-    parent_ctx = new_ctx.parent
+    parent_ctx: Context = new_ctx.parent
+    for each in node.body:
+        py_emit(each, new_ctx)
+
     args = node.args
     make_function_flags = 0
+    if new_ctx.sym_tb.freevars:
+        make_function_flags |= 0x08
+
     if args.defaults:
         make_function_flags |= 0x01
     if args.kw_defaults:
         make_function_flags |= 0x02
 
     annotations = []
+    argnames = []
+
     for arg in args.args:
+        argnames.append(arg.arg)
         if arg.annotation:
             annotations.append((arg.arg, arg.annotation))
 
     for arg in args.kwonlyargs:
+        argnames.append(arg.arg)
         if arg.annotation:
             annotations.append((arg.arg, arg.annotation))
     arg = args.vararg
     if arg and arg.annotation:
+        argnames.append(arg.arg)
         annotations.append((arg.arg, arg.annotation))
 
     arg = args.kwarg
     if arg and arg.annotation:
+        argnames.append(arg.arg)
         annotations.append((arg.arg, arg.annotation))
 
     if any(annotations):
         make_function_flags |= 0x04
+    new_ctx.bc.argnames.extend(argnames)
 
+    if make_function_flags & 0x01:
+        for each in args.defaults:
+            py_emit(each, parent_ctx)
+        parent_ctx.bc.append(
+            Instr('BUILD_TUPLE', len(args.defaults), lineno=node.lineno))
+
+    if make_function_flags & 0x02:
+        for each in args.kw_defaults:
+            py_emit(each, parent_ctx)
+        parent_ctx.bc.append(
+            Instr('BUILD_TUPLE', len(args.kw_defaults), lineno=node.lineno))
+
+    if make_function_flags & 0x04:
+        keys, annotation_values = zip(*annotations)
+        parent_ctx.bc.append(
+            Instr('LOAD_CONST', tuple(keys), lineno=node.lineno))
+        for each in annotation_values:
+            py_emit(each, parent_ctx)
+        parent_ctx.bc.append(
+            Instr("BUILD_TUPLE", len(annotation_values), lineno=node.lineno))
+
+    if make_function_flags & 0x08:
+        new_ctx.load_closure(lineno=node.lineno)
+
+    parent_ctx.bc.append(
+        Instr('LOAD_CONST', new_ctx.bc.to_code(), lineno=node.lineno))
+
+    ### when it comes to nested, the name is not generated correctly now.
+    parent_ctx.bc.append(Instr('LOAD_CONST', node.name, lineno=node.lineno))
+
+    parent_ctx.bc.append(
+        Instr("MAKE_FUNCTION", make_function_flags, lineno=node.lineno))
+
+    parent_ctx.store_name(node.name, lineno=node.lineno)
+
+
+@py_emit.case(ast.Assign)
+def py_emit(node: ast.Assign, ctx: Context):
     raise NotImplemented
 
 
@@ -139,8 +209,24 @@ def py_emit(node: ast.Name, ctx: Context):
 
 @py_emit.case(ast.Expr)
 def py_emit(node: ast.Expr, ctx: Context):
-    py_emit(node, ctx)
-    ctx.bc.append('POP_TOP')
+    py_emit(node.value, ctx)
+    ctx.bc.append(Instr('POP_TOP', lineno=node.lineno))
+
+
+@py_emit.case(ast.Call)
+def py_emit(node: ast.Call, ctx: Context):
+    py_emit(node.func, ctx)
+
+    if not node.keywords:
+        if not any(isinstance(each, ast.Starred) for each in node.args):
+            for each in node.args:
+                py_emit(each, ctx)
+            ctx.bc.append(
+                Instr('CALL_FUNCTION', len(node.args), lineno=node.lineno))
+        else:
+            raise NotImplemented
+    else:
+        raise NotImplemented
 
 
 @py_emit.case(ast.YieldFrom)
@@ -154,13 +240,13 @@ def py_emit(node: ast.YieldFrom, ctx: Context):
 
 @py_emit.case(ast.Yield)
 def py_emit(node: ast.Yield, ctx: Context):
-    py_emit(node.value)
+    py_emit(node.value, ctx)
     ctx.bc.append(Instr('YIELD_VALUE', lineno=node.lineno))
 
 
 @py_emit.case(ast.Return)
 def py_emit(node: ast.Return, ctx: Context):
-    py_emit(node.value)
+    py_emit(node.value, ctx)
     ctx.bc.append(Instr('RETURN_VALUE', lineno=node.lineno))
 
 

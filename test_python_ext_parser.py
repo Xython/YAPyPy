@@ -1,5 +1,9 @@
+from astpretty import pprint
+
 from kizmi.extended_python.parser import parse
-from kizmi.extended_python.symbol_analyzer import ASTTagger, SymTable
+from kizmi.extended_python.symbol_analyzer import ASTTagger, SymTable, to_tagged_ast, Tag
+from kizmi.extended_python.pybc_emit import py_compile
+import dis
 
 
 def parse_expr(expr_code):
@@ -19,8 +23,21 @@ def f(x):
     k = 4
 """).result
 
-g = SymTable.global_context()
+res: Tag = to_tagged_ast(stmt)
+print(res.tag.show_resolution())
 
-ASTTagger(g).visit(stmt)
-g.analyze()
-print(g.show_resolution())
+stmt = parse("""
+def f():
+    return 1
+    
+print(f())
+return 0
+""").result
+
+res: Tag = to_tagged_ast(stmt)
+
+code = py_compile(res)
+
+dis.dis(code)
+
+exec(code)
