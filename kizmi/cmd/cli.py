@@ -3,7 +3,6 @@ from kizmi.database.dbg_emit import *
 from kizmi.extended_python.parser import parse as parse_ext_py
 
 from rbnf.edsl.rbnf_analyze import check_parsing_complete
-from Redy.Tools.PathLib import Path
 from wisepy.talking import Talking
 
 from importlib._bootstrap_external import MAGIC_NUMBER
@@ -19,17 +18,17 @@ def gen(i: 'input filename', o: 'output filename'):
     """
     generate python source code for dbg-lang
     """
-    with Path(i).open('r') as fr:
+    with open(i, 'r') as fr:
         code = fr.read()
     res = parse(code)
     check_parsing_complete(code, res.tokens, res.state)
 
-    with Path(o).open('w') as fw:
+    with open(o, 'w') as fw:
         fw.write(code_gen(res.result))
 
 
 def compile_ex_python_from_filename(filename):
-    with Path(filename).open('r') as fr:
+    with open(filename, 'r') as fr:
         source_code = fr.read()
         result = parse_ext_py(source_code)
     result.state.filename = filename
@@ -68,7 +67,7 @@ def _compile(*filenames: str):
         marshalled_code_object = marshal.dumps(code)
         filename, ext = os.path.splitext(filename)
         filename = filename + '.pyc'
-        with Path(filename).open('wb') as f:
+        with open(filename, 'wb') as f:
             f.write(MAGIC_NUMBER)
             f.write(timestamp)
             f.write(b'A\x00\x00\x00')

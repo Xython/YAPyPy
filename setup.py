@@ -25,7 +25,7 @@ setup(
         ]
     },
     install_requires=[
-        'Redy', 'rbnf>=0.3.21', 'wisepy', 'bytecode==0.7.0', 'yapf'
+        'rbnf>=0.3.21', 'wisepy', 'bytecode==0.7.0', 'yapf'
     ],
     platforms='any',
     classifiers=[

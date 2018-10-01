@@ -2,7 +2,6 @@ import ast
 from typing import NamedTuple
 from kizmi.extended_python.symbol_analyzer import SymTable, Tag, Suite
 from kizmi.utils.namedlist import INamedList, as_namedlist, trait
-from Redy.Magic.Pattern import Pattern
 from bytecode import *
 from bytecode.concrete import FreeVar, CellVar
 from bytecode.flags import CompilerFlags
@@ -79,245 +78,213 @@ class Context(INamedList, metaclass=trait(as_namedlist)):
             parent.bc.append(Instr('BUILD_TUPLE', len(freevars)))
 
 
+    def visit(self, node):
+        method = 'visit_' + node.__class__.__name__
+        visitor = getattr(self, method)
+        return visitor(node)
+
+    def visit_Tag(self, node):
+        ctx.enter_new(node.tag).visit(node.it)
+
+    def visit_Module(self, node):
+        for each in node.body:
+            self.visit(each)
+        self.bc.append(Instr('LOAD_CONST', None))
+        self.bc.append(Instr('RETURN_VALUE'))
+
+    def visit_Suite(self, node):
+        for each in node.stmts:
+            ctx.visit(each)
+
+    def visit_FunctionDef(self, node):
+        """
+        https://docs.python.org/3/library/dis.html#opcode-MAKE_FUNCTION
+        MAKE_FUNCTION flags:
+        0x01 a tuple of default values for positional-only and positional-or-keyword parameters in positional order
+        0x02 a dictionary of keyword-only parameters’ default values
+        0x04 an annotation dictionary
+        0x08 a tuple containing cells for free variables, making a closure
+        the code associated with the function (at TOS1)
+        the qualified name of the function (at TOS)
+
+        """
+        parent_ctx: Context = self.parent
+        for each in node.body:
+            self.visit(each)
+
+        args = node.args
+        make_function_flags = 0
+        if self.sym_tb.freevars:
+            make_function_flags |= 0x08
+
+        if args.defaults:
+            make_function_flags |= 0x01
+        if args.kw_defaults:
+            make_function_flags |= 0x02
+
+        annotations = []
+        argnames = []
+
+        for arg in args.args:
+            argnames.append(arg.arg)
+            if arg.annotation:
+                annotations.append((arg.arg, arg.annotation))
+
+        for arg in args.kwonlyargs:
+            argnames.append(arg.arg)
+            if arg.annotation:
+                annotations.append((arg.arg, arg.annotation))
+        arg = args.vararg
+        if arg and arg.annotation:
+            argnames.append(arg.arg)
+            annotations.append((arg.arg, arg.annotation))
+
+        arg = args.kwarg
+        if arg and arg.annotation:
+            argnames.append(arg.arg)
+            annotations.append((arg.arg, arg.annotation))
+
+        if any(annotations):
+            make_function_flags |= 0x04
+        self.bc.argnames.extend(argnames)
+
+        if make_function_flags & 0x01:
+            for each in args.defaults:
+                py_emit(each, parent_ctx)
+            parent_ctx.bc.append(
+                Instr('BUILD_TUPLE', len(args.defaults), lineno=node.lineno))
+
+        if make_function_flags & 0x02:
+            for each in args.kw_defaults:
+                py_emit(each, parent_ctx)
+            parent_ctx.bc.append(
+                Instr('BUILD_TUPLE', len(args.kw_defaults), lineno=node.lineno))
+
+        if make_function_flags & 0x04:
+            keys, annotation_values = zip(*annotations)
+            parent_ctx.bc.append(
+                Instr('LOAD_CONST', tuple(keys), lineno=node.lineno))
+            for each in annotation_values:
+                py_emit(each, parent_ctx)
+            parent_ctx.bc.append(
+                Instr("BUILD_TUPLE", len(annotation_values), lineno=node.lineno))
+
+        if make_function_flags & 0x08:
+            self.load_closure(lineno=node.lineno)
+
+        self.bc.append(Instr('LOAD_CONST', None))
+        self.bc.append(Instr('RETURN_VALUE'))
+
+        parent_ctx.bc.append(
+            Instr('LOAD_CONST', self.bc.to_code(), lineno=node.lineno))
+
+        ### when it comes to nested, the name is not generated correctly now.
+        parent_ctx.bc.append(Instr('LOAD_CONST', node.name, lineno=node.lineno))
+
+        parent_ctx.bc.append(
+            Instr("MAKE_FUNCTION", make_function_flags, lineno=node.lineno))
+
+        parent_ctx.store_name(node.name, lineno=node.lineno)
+
+
+    def visit_Assign(self, node):
+        raise NotImplementedError
+
+    def visit_Name(self, node):
+        self.load_name(node.id, lineno=node.lineno)
+
+    def visit_Expr(self, node):
+        self.visit(node.value)
+        self.bc.append(Instr('POP_TOP', lineno=node.lineno))
+
+    def visit_Call(self, node):
+        self.visit(node.func)
+
+        if not node.keywords:
+            if not any(isinstance(each, ast.Starred) for each in node.args):
+                for each in node.args:
+                    self.visit(each)
+                self.bc.append(
+                    Instr('CALL_FUNCTION', len(node.args), lineno=node.lineno))
+            else:
+                raise NotImplementedError
+        else:
+            raise NotImplementedError
+
+    def visit_YieldFrom(self, node):
+        append = self.bc.append
+        self.visit(node.value)
+        self.bc.append(Instr('GET_YIELD_FROM_ITER', lineno=node.lineno))
+        self.bc.append(Instr('LOAD_CONST', None, lineno=node.lineno))
+        self.bc.append(Instr("YIELD_FROM", lineno=node.lineno))
+
+    def visit_Yield(self, node):
+        self.visit(node.value)
+        self.bc.append(Instr('YIELD_VALUE', lineno=node.lineno))
+
+    def visit_Return(self, node):
+        self.visit(node.value)
+        self.bc.append(Instr('RETURN_VALUE', lineno=node.lineno))
+
+    def visit_Pass(self, node):
+        pass
+
+    def visit_UnaryOp(self, node):
+        self.visit(node.value)
+        inst = {
+            ast.Not: "UNARY_NOT",
+            ast.USub: "UNARY_NEGATIVE",
+            ast.UAdd: "UNARY_POSITIVE",
+            ast.Invert: "UNARY_INVERT"
+        }.get(type(node.op))
+        if inst:
+            self.bc.append(Instr(inst, lineno=node.lineno))
+        else:
+            raise TypeError("type mismatched")
+
+    def visit_BinOp(self, node):
+        self.visit(node.left)
+        self.visit(node.right)
+        inst = {
+            ast.Add: "BINARY_ADD",
+            ast.BitAnd: "BINARY_AND",
+            ast.Sub: "BINARY_SUBTRACT",
+            ast.Div: "BINARY_TRUE_DIVIDE",
+            ast.FloorDiv: "BINARY_FLOOR_DIVIDE",
+            ast.LShift: "BINARY_LSHIFT",
+            ast.RShift: "BINARY_RSHIFT",
+            ast.MatMult: "BINARY_MATRIX_MULTIPLY",
+            ast.Pow: "BINARY_POWER",
+            ast.BitOr: "BINARY_OR",
+            ast.BitXor: "BINARY_XOR",
+            ast.Mult: "BINARY_MULTIPLY",
+            ast.Mod: "BINARY_MODULO"
+        }.get(type(node.op))
+        if inst:
+            self.bc.append(Instr(inst, lineno=node.lineno))
+        else:
+            raise TypeError("type mismatched")
+
+    def visit_BoolOp(self, node):
+        inst = {
+            ast.And: "JUMP_IF_FALSE_OR_POP",
+            ast.Or: "JUMP_IF_TRUE_OR_POP"
+        }.get(type(node.op))
+        if inst:
+            label = Label()
+            for expr in node.values[:-1]:
+                self.visit(expr)
+                self.bc.append(Instr(inst, label, lineno=node.lineno))
+            self.visit(node.values[-1])
+            self.bc.append(label)
+        else:
+            raise TypeError("type mismatched")
+
+    def visit_Num(node):
+        self.bc.append(Instr("LOAD_CONST", node.n, lineno=node.lineno))
+
+
 def py_compile(node: Tag):
     ctx = Context(Bytecode(), IndexedAnalyzedSymTable.from_raw(node.tag), None)
-    py_emit(node.it, ctx)
+    ctx.visit(node.it)
     return ctx.bc.to_code()
-
-
-@Pattern
-def py_emit(node: ast.AST, ctx: Context):
-    return type(node)
-
-
-@py_emit.case(Tag)
-def py_emit(node: Tag, ctx: Context):
-    ctx = ctx.enter_new(node.tag)
-    py_emit(node.it, ctx)
-
-
-@py_emit.case(ast.Module)
-def py_emit(node: ast.Module, ctx: Context):
-    for each in node.body:
-        py_emit(each, ctx)
-    ctx.bc.append(Instr('LOAD_CONST', None))
-    ctx.bc.append(Instr('RETURN_VALUE'))
-
-
-@py_emit.case(Suite)
-def py_emit(node: Suite, ctx: Context):
-    for each in node.stmts:
-        py_emit(each, ctx)
-
-
-@py_emit.case(ast.FunctionDef)
-def py_emit(node: ast.FunctionDef, new_ctx: Context):
-    """
-    https://docs.python.org/3/library/dis.html#opcode-MAKE_FUNCTION
-    MAKE_FUNCTION flags:
-    0x01 a tuple of default values for positional-only and positional-or-keyword parameters in positional order
-    0x02 a dictionary of keyword-only parameters’ default values
-    0x04 an annotation dictionary
-    0x08 a tuple containing cells for free variables, making a closure
-    the code associated with the function (at TOS1)
-    the qualified name of the function (at TOS)
-
-    """
-    parent_ctx: Context = new_ctx.parent
-    for each in node.body:
-        py_emit(each, new_ctx)
-
-    args = node.args
-    make_function_flags = 0
-    if new_ctx.sym_tb.freevars:
-        make_function_flags |= 0x08
-
-    if args.defaults:
-        make_function_flags |= 0x01
-    if args.kw_defaults:
-        make_function_flags |= 0x02
-
-    annotations = []
-    argnames = []
-
-    for arg in args.args:
-        argnames.append(arg.arg)
-        if arg.annotation:
-            annotations.append((arg.arg, arg.annotation))
-
-    for arg in args.kwonlyargs:
-        argnames.append(arg.arg)
-        if arg.annotation:
-            annotations.append((arg.arg, arg.annotation))
-    arg = args.vararg
-    if arg and arg.annotation:
-        argnames.append(arg.arg)
-        annotations.append((arg.arg, arg.annotation))
-
-    arg = args.kwarg
-    if arg and arg.annotation:
-        argnames.append(arg.arg)
-        annotations.append((arg.arg, arg.annotation))
-
-    if any(annotations):
-        make_function_flags |= 0x04
-    new_ctx.bc.argnames.extend(argnames)
-
-    if make_function_flags & 0x01:
-        for each in args.defaults:
-            py_emit(each, parent_ctx)
-        parent_ctx.bc.append(
-            Instr('BUILD_TUPLE', len(args.defaults), lineno=node.lineno))
-
-    if make_function_flags & 0x02:
-        for each in args.kw_defaults:
-            py_emit(each, parent_ctx)
-        parent_ctx.bc.append(
-            Instr('BUILD_TUPLE', len(args.kw_defaults), lineno=node.lineno))
-
-    if make_function_flags & 0x04:
-        keys, annotation_values = zip(*annotations)
-        parent_ctx.bc.append(
-            Instr('LOAD_CONST', tuple(keys), lineno=node.lineno))
-        for each in annotation_values:
-            py_emit(each, parent_ctx)
-
-        parent_ctx.bc.append(
-            Instr("BUILD_TUPLE", len(annotation_values), lineno=node.lineno))
-
-    if make_function_flags & 0x08:
-        new_ctx.load_closure(lineno=node.lineno)
-
-    new_ctx.bc.append(Instr('LOAD_CONST', None))
-    new_ctx.bc.append(Instr('RETURN_VALUE'))
-
-    parent_ctx.bc.append(
-        Instr('LOAD_CONST', new_ctx.bc.to_code(), lineno=node.lineno))
-
-    ### when it comes to nested, the name is not generated correctly now.
-    parent_ctx.bc.append(Instr('LOAD_CONST', node.name, lineno=node.lineno))
-
-    parent_ctx.bc.append(
-        Instr("MAKE_FUNCTION", make_function_flags, lineno=node.lineno))
-
-    parent_ctx.store_name(node.name, lineno=node.lineno)
-
-
-@py_emit.case(ast.Assign)
-def py_emit(node: ast.Assign, ctx: Context):
-    raise NotImplemented
-
-
-@py_emit.case(ast.Name)
-def py_emit(node: ast.Name, ctx: Context):
-    ctx.load_name(node.id, lineno=node.lineno)
-
-
-@py_emit.case(ast.Expr)
-def py_emit(node: ast.Expr, ctx: Context):
-    py_emit(node.value, ctx)
-    ctx.bc.append(Instr('POP_TOP', lineno=node.lineno))
-
-
-@py_emit.case(ast.Call)
-def py_emit(node: ast.Call, ctx: Context):
-    py_emit(node.func, ctx)
-
-    if not node.keywords:
-        if not any(isinstance(each, ast.Starred) for each in node.args):
-            for each in node.args:
-                py_emit(each, ctx)
-            ctx.bc.append(
-                Instr('CALL_FUNCTION', len(node.args), lineno=node.lineno))
-        else:
-            raise NotImplemented
-    else:
-        raise NotImplemented
-
-
-@py_emit.case(ast.YieldFrom)
-def py_emit(node: ast.YieldFrom, ctx: Context):
-    append = ctx.bc.append
-    py_emit(node.value, ctx)
-    append(Instr('GET_YIELD_FROM_ITER', lineno=node.lineno))
-    append(Instr('LOAD_CONST', None, lineno=node.lineno))
-    append(Instr("YIELD_FROM", lineno=node.lineno))
-
-
-@py_emit.case(ast.Yield)
-def py_emit(node: ast.Yield, ctx: Context):
-    py_emit(node.value, ctx)
-    ctx.bc.append(Instr('YIELD_VALUE', lineno=node.lineno))
-
-
-@py_emit.case(ast.Return)
-def py_emit(node: ast.Return, ctx: Context):
-    py_emit(node.value, ctx)
-    ctx.bc.append(Instr('RETURN_VALUE', lineno=node.lineno))
-
-
-@py_emit.case(ast.Pass)
-def py_emit(node: ast.Pass, ctx: Context):
-    pass
-
-
-@py_emit.case(ast.UnaryOp)
-def py_emit(node: ast.UnaryOp, ctx: Context):
-    py_emit(node.value, ctx)
-    inst = {
-        ast.Not: "UNARY_NOT",
-        ast.USub: "UNARY_NEGATIVE",
-        ast.UAdd: "UNARY_POSITIVE",
-        ast.Invert: "UNARY_INVERT"
-    }.get(type(node.op))
-    if inst:
-        ctx.bc.append(Instr(inst, lineno=node.lineno))
-    else:
-        raise TypeError("type mismatched")
-
-
-@py_emit.case(ast.BinOp)
-def py_emit(node: ast.BinOp, ctx: Context):
-    py_emit(node.left, ctx)
-    py_emit(node.right, ctx)
-    inst = {
-        ast.Add: "BINARY_ADD",
-        ast.BitAnd: "BINARY_AND",
-        ast.Sub: "BINARY_SUBTRACT",
-        ast.Div: "BINARY_TRUE_DIVIDE",
-        ast.FloorDiv: "BINARY_FLOOR_DIVIDE",
-        ast.LShift: "BINARY_LSHIFT",
-        ast.RShift: "BINARY_RSHIFT",
-        ast.MatMult: "BINARY_MATRIX_MULTIPLY",
-        ast.Pow: "BINARY_POWER",
-        ast.BitOr: "BINARY_OR",
-        ast.BitXor: "BINARY_XOR",
-        ast.Mult: "BINARY_MULTIPLY",
-        ast.Mod: "BINARY_MODULO"
-    }.get(type(node.op))
-    if inst:
-        ctx.bc.append(Instr(inst, lineno=node.lineno))
-    else:
-        raise TypeError("type mismatched")
-
-
-@py_emit.case(ast.BoolOp)
-def py_emit(node: ast.BoolOp, ctx: Context):
-    inst = {
-        ast.And: "JUMP_IF_FALSE_OR_POP",
-        ast.Or: "JUMP_IF_TRUE_OR_POP"
-    }.get(type(node.op))
-    if inst:
-        label = Label()
-        for expr in node.values[:-1]:
-            py_emit(expr, ctx)
-            ctx.bc.append(Instr(inst, label, lineno=node.lineno))
-        py_emit(node.values[-1], ctx)
-        ctx.bc.append(label)
-    else:
-        raise TypeError("type mismatched")
-
-
-@py_emit.case(ast.Num)
-def py_emit(node: ast.Num, ctx: Context):
-    ctx.bc.append(Instr("LOAD_CONST", node.n, lineno=node.lineno))
