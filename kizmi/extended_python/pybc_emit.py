@@ -331,3 +331,25 @@ def py_expr_emit(node: ast.BinOp, ctx: Context):
         ctx.bc.append(Instr(inst, lineno=node.lineno))
     else:
         raise TypeError("type mismatched")
+
+
+@py_expr_emit.case(ast.BoolOp)
+def py_expr_emit(node: ast.BoolOp, ctx: Context):
+    inst = {
+        ast.And: "JUMP_IF_FALSE_OR_POP",
+        ast.Or: "JUMP_IF_TRUE_OR_POP"
+    }.get(type(node.op))
+    if inst:
+        label = Label()
+        for expr in node.values[:-1]:
+            py_expr_emit(expr, ctx)
+            ctx.bc.append(Instr(inst, label, lineno=node.lineno))
+        py_expr_emit(node.values[-1], ctx)
+        ctx.bc.append(label)
+    else:
+        raise TypeError("type mismatched")
+
+
+@py_expr_emit.case(ast.Num)
+def py_expr_emit(node: ast.Num, ctx: Context):
+    ctx.bc.append(Instr("LOAD_CONST", node.n, lineno=node.lineno))
