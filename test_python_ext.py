@@ -31,6 +31,8 @@ def f():
     pass
     
 print(f())
+x, y = 1, 2
+print(x, y)
 """).result
 
 res: Tag = to_tagged_ast(stmt)

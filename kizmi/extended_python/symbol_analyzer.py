@@ -140,9 +140,6 @@ class Tag(ast.AST):
         self.tag = tag
 
 
-class Suite(ast.AST, NamedTuple):
-    stmts: List[ast.stmt]
-
 
 def _visit_name(self, node: ast.Name):
     symtable = self.symtable

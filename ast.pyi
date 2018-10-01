@@ -150,9 +150,9 @@ class Dict(AST):
 
 
 class Tuple(AST):
-    elts: typing.List[typing.Union[
+    elts: typing.List[
         typing.Union[Name, Str, Tuple, Starred, NameConstant, Num, List,
-                     Ellipsis, BoolOp, Subscript, Call, BinOp, Attribute]]]
+                     Ellipsis, BoolOp, Subscript, Call, BinOp, Attribute]]
     ctx: typing.Union[Load, Store]
     lineno: typing.Union[int]
     col_offset: typing.Union[int]

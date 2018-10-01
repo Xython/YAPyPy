@@ -1,7 +1,8 @@
 import ast
 from typing import NamedTuple
-from kizmi.extended_python.symbol_analyzer import SymTable, Tag, Suite
+from kizmi.extended_python.symbol_analyzer import SymTable, Tag
 from kizmi.utils.namedlist import INamedList, as_namedlist, trait
+from kizmi.utils.instrs import *
 from Redy.Magic.Pattern import Pattern
 from bytecode import *
 from bytecode.concrete import FreeVar, CellVar
@@ -104,10 +105,36 @@ def py_emit(node: ast.Module, ctx: Context):
     ctx.bc.append(Instr('RETURN_VALUE'))
 
 
-@py_emit.case(Suite)
-def py_emit(node: Suite, ctx: Context):
-    for each in node.stmts:
+@py_emit.case(ast.Str)
+def py_emit(node: ast.Str, ctx: Context):
+    ctx.bc.append(LOAD_CONST(node.s, lineno=node.s))
+
+
+@py_emit.case(ast.JoinedStr)
+def py_emit(node: ast.JoinedStr, ctx: Context):
+    for each in node.values:
         py_emit(each, ctx)
+    ctx.bc.append(BUILD_STRING(len(node.values), lineno=node.lineno))
+
+
+@py_emit.case(ast.FormattedValue)
+def py_emit(node: ast.FormattedValue, ctx: Context):
+    raise NotImplemented
+
+
+@py_emit.case(ast.Tuple)
+def py_emit(node: ast.Tuple, ctx: Context):
+    is_lhs = isinstance(node.ctx, ast.Store)
+    if any(isinstance(each, ast.Starred) for each in node.elts):
+        raise NotImplemented
+    if is_lhs:
+        UNPACK_SEQUENCE(len(node.elts), lineno=node.lineno)
+        for each in node.elts:
+            py_emit(each, ctx)
+    else:
+        for each in node.elts:
+            py_emit(each, ctx)
+        BUILD_TUPLE(len(node.elts), lineno=node.lineno)
 
 
 @py_emit.case(ast.FunctionDef)
@@ -205,12 +232,22 @@ def py_emit(node: ast.FunctionDef, new_ctx: Context):
 
 @py_emit.case(ast.Assign)
 def py_emit(node: ast.Assign, ctx: Context):
-    raise NotImplemented
+    targets = node.targets
+    value = node.value
+    n = len(targets)
+    py_emit(value, ctx)
+    for _ in range(n - 1):
+        ctx.bc.append(DUP_TOP(lineno=node.lineno))
+    for each in targets:
+        py_emit(each, ctx)
 
 
 @py_emit.case(ast.Name)
 def py_emit(node: ast.Name, ctx: Context):
-    ctx.load_name(node.id, lineno=node.lineno)
+    if isinstance(node.ctx, ast.Load):
+        ctx.load_name(node.id, lineno=node.lineno)
+    else:
+        ctx.store_name(node.id, lineno=node.lineno)
 
 
 @py_emit.case(ast.Expr)
@@ -320,4 +357,5 @@ def py_emit(node: ast.BoolOp, ctx: Context):
 
 @py_emit.case(ast.Num)
 def py_emit(node: ast.Num, ctx: Context):
+
     ctx.bc.append(Instr("LOAD_CONST", node.n, lineno=node.lineno))
