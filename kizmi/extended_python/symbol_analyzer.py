@@ -1,6 +1,7 @@
 import ast
 from kizmi.utils.namedlist import INamedList, as_namedlist, trait
-from typing import NamedTuple, List, Optional
+from typing import NamedTuple, List, Optional, Union
+from pprint import pformat
 
 
 class AnalyzedSymTable(NamedTuple):
@@ -77,19 +78,24 @@ class SymTable(INamedList, metaclass=trait(as_namedlist)):
         enters = self.entered
         requires = self.requires - enters
         nonlocals = self.explicit_nonlocals
-        self.analyzed.freevars.update(
+        freevars = self.analyzed.freevars
+        freevars.update(
             nonlocals.union({
                 each
                 for each in requires if self.can_resolve_by_parents(each)
             }))
+        return freevars
 
     def resolve_cellvars(self):
         analyzed = self.analyzed
-        analyzed.cellvars.update(
+        cellvars = analyzed.cellvars
+        cellvars.update(
             set.union(set(),
                       *(each.analyze().freevars
                         for each in self.children)).intersection(
                             analyzed.bounds))
+        analyzed.bounds.difference_update(cellvars)
+        return cellvars
 
     def analyze(self):
         if self.analyzed:
@@ -106,33 +112,102 @@ class SymTable(INamedList, metaclass=trait(as_namedlist)):
             self.resolve_cellvars()
             return self.analyzed
 
+    def show_resolution(self):
+        def show_resolution(this):
+            return [
+                this.analyzed,
+                [show_resolution(each) for each in this.children]
+            ]
+
+        return pformat(show_resolution(self))
+
 
 class Tag(NamedTuple):
     it: ast.AST
     tag: SymTable
 
 
+def _visit_name(self, node: ast.Name):
+    symtable = self.symtable
+    name = node.id
+    if isinstance(node.ctx, ast.Store):
+        symtable.entered.add(name)
+    elif isinstance(node.ctx, ast.Load):
+        symtable.requires.add(name)
+    return node
+
+
+def _visit_import(self, node: ast.ImportFrom):
+    for each in node.names:
+        name = each.asname or each.name
+        self.symtable.entered.add(name)
+
+    return node
+
+
+def _visit_global(self, node: ast.Global):
+    self.symtable.explicit_globals.update(node.names)
+    return node
+
+
+def _visit_nonlocal(self, node: ast.Nonlocal):
+    self.symtable.explicit_globals.update(node.names)
+    return node
+
+
+def _visit_fn_def(self: 'ASTTagger',
+                  node: Union[ast.FunctionDef, ast.AsyncFunctionDef]):
+    self.symtable.entered.add(node.name)
+
+    for each in node.decorator_list:
+        self.visit(each)
+
+    self.visit(node.args)
+    if node.returns:
+        node.returns = self.visit(node.returns)
+
+    new = self.symtable.enter_new()
+
+    new_tagger = ASTTagger(new)
+
+    node.body = [Tag(new_tagger.visit(each), new) for each in node.body]
+    return node
+
+
+def _visit_lam(self: 'ASTTagger', node: ast.Lambda):
+    self.visit(node.args)
+    new = self.symtable.enter_new()
+    new_tagger = ASTTagger(new)
+    node.body = Tag(new_tagger.visit(node.body), new)
+    return node
+
+
 class ASTTagger(ast.NodeTransformer):
     def __init__(self, symtable: SymTable):
         self.symtable = symtable
 
-    def visit_Name(self, node: ast.Name):
-        symtable = self.symtable
-        name = node.id
-        if isinstance(node.ctx, ast.Store):
-            symtable.entered.add(name)
-        elif isinstance(node.ctx, ast.Load):
-            symtable.requires.add(name)
+    visit_Name = _visit_name
+    visit_Import = _visit_import
+    visit_ImportFrom = _visit_import
+    visit_Global = _visit_global
+    visit_Nonlocal = _visit_nonlocal
+    visit_FunctionDef = _visit_fn_def
+    visit_AsyncFunctionDef = _visit_fn_def
+    visit_Lambda = _visit_lam
 
 
 if __name__ == '__main__':
-    g = SymTable.global_context()
+    import ast
 
-    new = g.enter_new()
-    new.entered.update('a')
-    nested = new.enter_new()
-    nested.requires.update('a')
+    mod = ast.parse("""
+def f():
+    x = 1
+    def g(y):
+        t + y
+        x + d
+    d = 2
+    """)
+    g = SymTable.global_context()
+    ASTTagger(g).visit(mod)
     g.analyze()
-    print(g.analyzed)
-    print(new.analyzed)
-    print(nested.analyzed)
+    print(g.show_resolution())
