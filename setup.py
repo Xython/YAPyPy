@@ -1,6 +1,5 @@
 from setuptools import setup
-from Redy.Tools.Version import Version
-from Redy.Tools.PathLib import Path
+
 #
 # with open('./README.md', encoding='utf-8') as f:
 #     readme = f.read()
@@ -26,7 +25,7 @@ setup(
         ]
     },
     install_requires=[
-        'Redy', 'rbnf>=0.3.21', 'wisepy', 'bytecode==0.7.0', 'toolz'
+        'Redy', 'rbnf>=0.3.21', 'wisepy', 'bytecode==0.7.0', 'yapf'
     ],
     platforms='any',
     classifiers=[
