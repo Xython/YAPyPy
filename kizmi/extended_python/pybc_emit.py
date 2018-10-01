@@ -33,6 +33,7 @@ class Context(INamedList, metaclass=trait(as_namedlist)):
     def enter_new(self, tag_table: SymTable):
         sym_tb = IndexedAnalyzedSymTable.from_raw(tag_table)
         bc = Bytecode()
+        bc.flags |= CompilerFlags.NEWLOCALS
         if tag_table.depth > 1:
             bc.flags |= CompilerFlags.NESTED
 
@@ -52,7 +53,8 @@ class Context(INamedList, metaclass=trait(as_namedlist)):
             self.bc.append(Instr('LOAD_DEREF', FreeVar(name), lineno=lineno))
         elif name in sym_tb.bounds:
             self.bc.append(Instr('LOAD_FAST', name, lineno=lineno))
-        self.bc.append(Instr("LOAD_GLOBAL", name, lineno=lineno))
+        else:
+            self.bc.append(Instr("LOAD_GLOBAL", name, lineno=lineno))
 
     def store_name(self, name, lineno=None):
         sym_tb = self.sym_tb
@@ -62,7 +64,8 @@ class Context(INamedList, metaclass=trait(as_namedlist)):
             self.bc.append(Instr('STORE_DEREF', FreeVar(name), lineno=lineno))
         elif name in sym_tb.bounds:
             self.bc.append(Instr('STORE_FAST', name, lineno=lineno))
-        self.bc.append(Instr("STORE_GLOBAL", name, lineno=lineno))
+        else:
+            self.bc.append(Instr("STORE_GLOBAL", name, lineno=lineno))
 
     def load_closure(self, lineno=None):
         parent = self.parent
@@ -190,6 +193,7 @@ def py_emit(node: ast.FunctionDef, new_ctx: Context):
 
     if any(annotations):
         make_function_flags |= 0x04
+
     new_ctx.bc.argnames.extend(argnames)
 
     if make_function_flags & 0x01:
@@ -219,9 +223,9 @@ def py_emit(node: ast.FunctionDef, new_ctx: Context):
 
     new_ctx.bc.append(Instr('LOAD_CONST', None))
     new_ctx.bc.append(Instr('RETURN_VALUE'))
+    inner_code = new_ctx.bc.to_code()
 
-    parent_ctx.bc.append(
-        Instr('LOAD_CONST', new_ctx.bc.to_code(), lineno=node.lineno))
+    parent_ctx.bc.append(Instr('LOAD_CONST', inner_code, lineno=node.lineno))
 
     ### when it comes to nested, the name is not generated correctly now.
     parent_ctx.bc.append(Instr('LOAD_CONST', node.name, lineno=node.lineno))

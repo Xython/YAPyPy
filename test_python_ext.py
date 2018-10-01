@@ -27,10 +27,10 @@ res: Tag = to_tagged_ast(stmt)
 print(res.tag.show_resolution())
 
 stmt = parse("""
-def f():
-    pass
+def f(x):
+    x
     
-print(f())
+print(f(1))
 x, y = 1, 2
 print(x, y)
 """).result
