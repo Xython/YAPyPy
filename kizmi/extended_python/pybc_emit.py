@@ -100,6 +100,8 @@ def py_emit(node: Tag, ctx: Context):
 def py_emit(node: ast.Module, ctx: Context):
     for each in node.body:
         py_emit(each, ctx)
+    ctx.bc.append(Instr('LOAD_CONST', None))
+    ctx.bc.append(Instr('RETURN_VALUE'))
 
 
 @py_emit.case(Suite)
@@ -179,11 +181,15 @@ def py_emit(node: ast.FunctionDef, new_ctx: Context):
             Instr('LOAD_CONST', tuple(keys), lineno=node.lineno))
         for each in annotation_values:
             py_emit(each, parent_ctx)
+
         parent_ctx.bc.append(
             Instr("BUILD_TUPLE", len(annotation_values), lineno=node.lineno))
 
     if make_function_flags & 0x08:
         new_ctx.load_closure(lineno=node.lineno)
+
+    new_ctx.bc.append(Instr('LOAD_CONST', None))
+    new_ctx.bc.append(Instr('RETURN_VALUE'))
 
     parent_ctx.bc.append(
         Instr('LOAD_CONST', new_ctx.bc.to_code(), lineno=node.lineno))

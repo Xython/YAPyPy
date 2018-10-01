@@ -28,10 +28,9 @@ print(res.tag.show_resolution())
 
 stmt = parse("""
 def f():
-    return 1
+    pass
     
 print(f())
-return 0
 """).result
 
 res: Tag = to_tagged_ast(stmt)
