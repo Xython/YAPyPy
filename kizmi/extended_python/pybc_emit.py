@@ -155,6 +155,8 @@ def py_emit(node: ast.FunctionDef, new_ctx: Context):
         py_emit(each, new_ctx)
 
     args = node.args
+    new_ctx.bc.argcount = len(args.args)
+    new_ctx.bc.kwonlyargcount = len(args.kwonlyargs)
     make_function_flags = 0
     if new_ctx.sym_tb.freevars:
         make_function_flags |= 0x08
