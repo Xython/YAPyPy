@@ -365,3 +365,21 @@ def py_emit(node: ast.BoolOp, ctx: Context):
 def py_emit(node: ast.Num, ctx: Context):
 
     ctx.bc.append(Instr("LOAD_CONST", node.n, lineno=node.lineno))
+
+
+@py_stmt_emit.case(ast.Import)
+def py_stmt_emit(node: ast.Import, ctx: Context):
+    for name in node.names:
+        ctx.bc.append(Instr("LOAD_CONST", 0, lineno=node.lineno))      # TOS1 for level, default to zero
+        ctx.bc.append(Instr("LOAD_CONST", None, lineno=node.lineno))   # TOS for fromlist()
+        ctx.bc.append(Instr("IMPORT_NAME", name.name, lineno=node.lineno))
+
+
+@py_stmt_emit.case(ast.ImportFrom)
+def py_stmt_emit(node: ast.ImportFrom, ctx: Context):
+    ctx.bc.append(Instr("LOAD_CONST", node.level, lineno=node.lineno))
+    ctx.bc.append(Instr("LOAD_CONST", node.names, lineno=node.lineno))
+    ctx.bc.append(Instr("IMPORT_NAME", node.module, lineno=node.lineno))
+    for name in node.names:
+        ctx.bc.append(Instr("IMPORT_FROM", name.name, lineno=node.lineno))
+        ctx.bc.append(Instr("STORE_FAST", name.name, lineno=node.lineno))
