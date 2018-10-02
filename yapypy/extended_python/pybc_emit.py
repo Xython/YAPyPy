@@ -1,4 +1,5 @@
 import ast
+import dis
 from typing import NamedTuple
 from yapypy.extended_python.symbol_analyzer import SymTable, Tag
 from yapypy.utils.namedlist import INamedList, as_namedlist, trait
@@ -166,6 +167,7 @@ def py_emit(node: ast.FunctionDef, new_ctx: Context):
 
     if args.defaults:
         make_function_flags |= 0x01
+
     if args.kw_defaults:
         make_function_flags |= 0x02
 
@@ -182,14 +184,18 @@ def py_emit(node: ast.FunctionDef, new_ctx: Context):
         if arg.annotation:
             annotations.append((arg.arg, arg.annotation))
     arg = args.vararg
-    if arg and arg.annotation:
+    if arg:
+        new_ctx.bc.flags |= CompilerFlags.VARARGS
         argnames.append(arg.arg)
-        annotations.append((arg.arg, arg.annotation))
+        if arg.annotation:
+            annotations.append((arg.arg, arg.annotation))
 
     arg = args.kwarg
-    if arg and arg.annotation:
+    if arg:
+        new_ctx.bc.flags |= CompilerFlags.VARKEYWORDS
         argnames.append(arg.arg)
-        annotations.append((arg.arg, arg.annotation))
+        if arg.annotation:
+            annotations.append((arg.arg, arg.annotation))
 
     if any(annotations):
         make_function_flags |= 0x04
@@ -234,6 +240,18 @@ def py_emit(node: ast.FunctionDef, new_ctx: Context):
         Instr("MAKE_FUNCTION", make_function_flags, lineno=node.lineno))
 
     parent_ctx.store_name(node.name, lineno=node.lineno)
+
+
+@py_emit.case(ast.Dict)
+def py_emit(node: ast.Dict, ctx: Context):
+    keys = node.keys
+    values = node.values
+    if any(each for each in keys if each is None):
+        raise NotImplemented
+    for key, value in zip(keys, values):
+        py_emit(key, ctx)
+        py_emit(value, ctx)
+    ctx.bc.append(Instr('BUILD_MAP', len(keys), lineno=node.lineno))
 
 
 @py_emit.case(ast.Assign)
@@ -293,7 +311,8 @@ def py_emit(node: ast.Call, ctx: Context):
                 arg_count += 1
             else:
                 if arg_count:
-                    ctx.bc.append(Instr("BUILD_TUPLE", arg_count, lineno=node.lineno))
+                    ctx.bc.append(
+                        Instr("BUILD_TUPLE", arg_count, lineno=node.lineno))
                     arg_tuple_count += 1
                     arg_count = 0
                 py_emit(each.value, ctx)
@@ -304,7 +323,11 @@ def py_emit(node: ast.Call, ctx: Context):
             arg_tuple_count += 1
 
         if arg_tuple_count > 1:
-            ctx.bc.append(Instr("BUILD_TUPLE_UNPACK_WITH_CALL", arg_tuple_count, lineno=node.lineno))
+            ctx.bc.append(
+                Instr(
+                    "BUILD_TUPLE_UNPACK_WITH_CALL",
+                    arg_tuple_count,
+                    lineno=node.lineno))
         elif arg_tuple_count == 1:
             pass
         elif arg_tuple_count == 0:
@@ -333,12 +356,20 @@ def py_emit(node: ast.Call, ctx: Context):
                     if karg_count > 1:
                         for value in values:
                             py_emit(value, ctx)
-                        ctx.bc.append(Instr("LOAD_CONST", tuple(keys), lineno=node.lineno))
-                        ctx.bc.append(Instr("BUILD_CONST_KEY_MAP", karg_count, lineno=node.lineno))
+                        ctx.bc.append(
+                            Instr(
+                                "LOAD_CONST", tuple(keys), lineno=node.lineno))
+                        ctx.bc.append(
+                            Instr(
+                                "BUILD_CONST_KEY_MAP",
+                                karg_count,
+                                lineno=node.lineno))
                     elif karg_count == 1:
-                        ctx.bc.append(Instr("LOAD_CONST", keys[0], lineno=node.lineno))
+                        ctx.bc.append(
+                            Instr("LOAD_CONST", keys[0], lineno=node.lineno))
                         py_emit(values[0], ctx)
-                        ctx.bc.append(Instr("BUILD_MAP", 1, lineno=node.lineno))
+                        ctx.bc.append(
+                            Instr("BUILD_MAP", 1, lineno=node.lineno))
                     keys = []
                     values = []
                     karg_count = 0
@@ -348,7 +379,11 @@ def py_emit(node: ast.Call, ctx: Context):
                 karg_pack_count += 1
         node.keywords.pop(-1)  # pop dummy node
         if karg_pack_count > 1:
-            ctx.bc.append(Instr("BUILD_MAP_UNPACK_WITH_CALL", karg_pack_count, lineno=node.lineno))
+            ctx.bc.append(
+                Instr(
+                    "BUILD_MAP_UNPACK_WITH_CALL",
+                    karg_pack_count,
+                    lineno=node.lineno))
     else:
         keys = []
         for each in node.keywords:
@@ -358,11 +393,20 @@ def py_emit(node: ast.Call, ctx: Context):
             ctx.bc.append(Instr("LOAD_CONST", tuple(keys), lineno=node.lineno))
 
     if has_star or has_star_star:
-        ctx.bc.append(Instr("CALL_FUNCTION_EX", has_star_star | has_key, lineno=node.lineno))
+        ctx.bc.append(
+            Instr(
+                "CALL_FUNCTION_EX",
+                has_star_star | has_key,
+                lineno=node.lineno))
     elif has_key:
-        ctx.bc.append(Instr("CALL_FUNCTION_KW", len(node.args) + len(node.keywords), lineno=node.lineno))
+        ctx.bc.append(
+            Instr(
+                "CALL_FUNCTION_KW",
+                len(node.args) + len(node.keywords),
+                lineno=node.lineno))
     else:
-        ctx.bc.append(Instr('CALL_FUNCTION', len(node.args), lineno=node.lineno))
+        ctx.bc.append(
+            Instr('CALL_FUNCTION', len(node.args), lineno=node.lineno))
 
 
 @py_emit.case(ast.YieldFrom)
