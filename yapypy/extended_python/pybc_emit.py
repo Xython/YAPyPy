@@ -304,6 +304,16 @@ def py_emit(node: ast.Pass, ctx: Context):
     pass
 
 
+@py_emit.case(ast.Nonlocal)
+def py_emit(_1, _2):
+    pass
+
+
+@py_emit.case(ast.Global)
+def py_emit(_1, _2):
+    pass
+
+
 @py_emit.case(ast.UnaryOp)
 def py_emit(node: ast.UnaryOp, ctx: Context):
     py_emit(node.value, ctx)
@@ -316,7 +326,7 @@ def py_emit(node: ast.UnaryOp, ctx: Context):
     if inst:
         ctx.bc.append(Instr(inst, lineno=node.lineno))
     else:
-        raise TypeError("type mismatched")
+        raise TypeError
 
 
 @py_emit.case(ast.BinOp)
@@ -341,7 +351,7 @@ def py_emit(node: ast.BinOp, ctx: Context):
     if inst:
         ctx.bc.append(Instr(inst, lineno=node.lineno))
     else:
-        raise TypeError("type mismatched")
+        raise TypeError
 
 
 @py_emit.case(ast.BoolOp)
@@ -358,7 +368,7 @@ def py_emit(node: ast.BoolOp, ctx: Context):
         py_emit(node.values[-1], ctx)
         ctx.bc.append(label)
     else:
-        raise TypeError("type mismatched")
+        raise TypeError
 
 
 @py_emit.case(ast.Num)
