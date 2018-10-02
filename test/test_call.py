@@ -35,7 +35,6 @@ f(1, 2, *c, **d, **e)
 f(1, 2, *c)
 f(1, 2, y=1, *x, a=1, b=2, c=3, **d)
 f(1, 2, y=1, *x, a=1, b=2, c=3, **d, e=4)
-
 """
 
 res: Tag = to_tagged_ast(parse(code).result)
