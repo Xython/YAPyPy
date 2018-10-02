@@ -1,8 +1,8 @@
 import ast
 from astpretty import pprint
-from kizmi.extended_python.parser import parse
-from kizmi.extended_python.symbol_analyzer import ASTTagger, SymTable, to_tagged_ast, Tag
-from kizmi.extended_python.pybc_emit import py_compile
+from yapypy.extended_python.parser import parse
+from yapypy.extended_python.symbol_analyzer import ASTTagger, SymTable, to_tagged_ast, Tag
+from yapypy.extended_python.pybc_emit import py_compile
 import dis
 
 

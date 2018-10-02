@@ -5,8 +5,8 @@ from rbnf.core.State import State
 from rbnf.easy import Language, build_parser, build_language, ze
 from rbnf.edsl.rbnf_analyze import check_parsing_complete
 from keyword import kwlist
-from .grammar import RBNF
-from kizmi.extended_python import helper
+from yapypy.extended_python.grammar import RBNF
+from yapypy.extended_python import helper
 
 import ast
 import typing as t

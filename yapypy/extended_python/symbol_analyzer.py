@@ -1,5 +1,5 @@
 import ast
-from kizmi.utils.namedlist import INamedList, as_namedlist, trait
+from yapypy.utils.namedlist import INamedList, as_namedlist, trait
 from typing import NamedTuple, List, Optional, Union
 from pprint import pformat
 
