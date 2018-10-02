@@ -6,7 +6,7 @@ from yapypy.utils.namedlist import INamedList, as_namedlist, trait
 from yapypy.utils.instrs import *
 from Redy.Magic.Pattern import Pattern
 from bytecode import *
-from bytecode.concrete import FreeVar, CellVar
+from bytecode.concrete import FreeVar, CellVar, Compare
 from bytecode.flags import CompilerFlags
 
 
@@ -579,3 +579,87 @@ def py_emit(node: ast.ImportFrom, ctx: Context):
             as_name = name.name or name.asname
             ctx.store_name(as_name, lineno=lineno)
         ctx.bc.append(POP_TOP(lineno=lineno))
+
+@py_emit.case(ast.ListComp)
+def py_emit(node: ast.ListComp, ctx: Context):
+    loop_start = Label()
+    loop_done = Label()
+    loop_exit = Label()
+
+    append = ctx.bc.append
+    append(Instr("BUILD_LIST", lineno=node.lineno))
+    append(Instr("LOAD_FAST", '.0', lineno=node.lineno))
+    append(loop_start)
+    append(Instr("FOR_ITER", loop_done))
+    py_emit(node.generators[0].target)
+    py_emit(node.generators[0].iter)
+    py_emit(node.elt)
+    append(Instr("LIST_APPEND"))
+    append(Instr("JUMP_ABSOLUTE", loop_start))
+    append(loop_exit)
+
+
+
+@py_emit.case(ast.Compare)
+def py_emit(node: ast.Compare, ctx: Context):
+    """
+    test:
+    >>> 1 == 1
+    >>> 1 != 1
+    >>> 1 > 1
+    >>> 1 >= 2
+    >>> 1 < 1
+    >>> 1 <= 2
+    >>> 1 is 1
+    >>> 1 is not 1
+    >>> 1 in range(2)
+    >>> 1 not in range(3)
+    >>> 1 == 1 != 2 > 1 >= 1 < 2 <= 2 is 2 is not 3 in range(3) not in range(3)
+    """
+    ops = {
+        ast.Eq: Compare.EQ,
+        ast.NotEq: Compare.NE,
+        ast.Lt: Compare.LT,
+        ast.LtE: Compare.LE,
+        ast.Gt: Compare.GT,
+        ast.GtE: Compare.GE,
+        ast.Is: Compare.IS,
+        ast.IsNot: Compare.IS_NOT,
+        ast.In: Compare.IN,
+        ast.NotIn: Compare.NOT_IN,
+    }
+    len_of_comparators = len(node.comparators)
+    is_multiple = len_of_comparators > 1
+
+    py_emit(node.left, ctx)
+    if is_multiple:
+        last_idx_of_comparators = len_of_comparators - 1
+        label_rot = Label()
+        label_out = Label()
+        for idx in range(len_of_comparators):
+            op_type = type(node.ops[idx])
+            op = ops.get(op_type)
+            expr = node.comparators[idx]
+            if expr:
+                py_emit(expr, ctx)
+                if idx == last_idx_of_comparators:
+                    ctx.bc.append(Instr("JUMP_FORWARD", label_out))
+                else:
+                    ctx.bc.append(Instr("DUP_TOP"))
+                    ctx.bc.append(Instr("ROT_THREE"))
+                    ctx.bc.append(Instr("COMPARE_OP", op, lineno=node.lineno))
+                    ctx.bc.append(Instr("JUMP_IF_FALSE_OR_POP", label_rot))
+            else:
+                raise TypeError("type mismatched")
+
+        ctx.bc.append(label_rot)
+        ctx.bc.append(Instr("ROT_TWO"))
+        ctx.bc.append(Instr("POP_TOP"))
+        ctx.bc.append(label_out)
+    else:
+        py_emit(node.comparators[0], ctx)
+        op_type = type(node.ops[0])
+        if op_type:
+            ctx.bc.append(Instr("COMPARE_OP", ops.get(op_type), lineno=node.lineno))
+        else:
+            raise TypeError("type mismatched")
