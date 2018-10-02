@@ -140,7 +140,7 @@ atom_expr      ::= [a='await'] atom=atom trailers=trailer*
 
 atom           ::= (gen ='(' comp=[yield_expr|testlist_comp] ')' |
                     list='[' comp=[testlist_comp]            ']' |
-                       '{' dict=[dictorsetmaker] '}' |
+                       head='{' [dict=dictorsetmaker] is_dict='}' |
                        name=NAME |
                        number=NUMBER | 
                        strs=STRING+ | 
@@ -149,14 +149,14 @@ atom           ::= (gen ='(' comp=[yield_expr|testlist_comp] ')' |
                        namedc='True' | 
                        namedc='False')
                        ->
-                           Name(name.value, Load(), **loc @ name) if name else\
-                           Num(eval(number.value), **loc @ number) if number else\
-                           str_maker(*strs) if strs else\
-                           Ellipsis() if ellipsis else\
+                           Name(name.value, Load(), **loc @ name)          if name else\
+                           Num(eval(number.value), **loc @ number)         if number else\
+                           str_maker(*strs)                                if strs else\
+                           Ellipsis()                                      if ellipsis else\
                            NamedConstant(eval(namedc.value), **loc@namedc) if namedc else\
-                           dict if dict else\
-                           comp(is_tuple=True) if gen else\
-                           comp(is_list=True) if lisp else\
+                           (dict or Dict([], [], **loc @ head))            if is_dict else\
+                           comp(is_tuple=True)                             if gen else\
+                           comp(is_list=True)                              if lisp else\
                            raise_exp(TypeError) 
                                           
 testlist_comp  ::= values<<(test|star_expr) ( comp=comp_for | (',' values<<(test|star_expr))* [','] )

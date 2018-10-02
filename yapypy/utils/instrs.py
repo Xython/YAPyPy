@@ -9,6 +9,10 @@ def LOAD_FAST(name: str, *, lineno=None):
     return Instr('LOAD_FAST', name, lineno=lineno)
 
 
+def STORE_FAST(name: str, *, lineno=None):
+    return Instr('STORE_FAST', name, lineno=lineno)
+
+
 def BUILD_STRING(n: int, *, lineno=None):
     return Instr('BUILD_STRING', n, lineno=lineno)
 
@@ -24,3 +28,7 @@ def BUILD_TUPLE(n: int, *, lineno=None):
 
 def DUP_TOP(*, lineno=None):
     return Instr('DUP_TOP', lineno=lineno)
+
+
+def POP_TOP(*, lineno=None):
+    return Instr('POP_TOP', lineno=lineno)

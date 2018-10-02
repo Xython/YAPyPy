@@ -215,7 +215,6 @@ def augassign_rewrite(it: Tokenizer):
 
 
 def expr_stmt_rewrite(lhs, ann, aug, aug_exp, rhs: t.Optional[list]):
-
     if rhs:
         as_store(lhs)
         *init, end = rhs
@@ -277,7 +276,7 @@ def check_call_args(loc, seq: t.List[ast.expr]):
     for each in seq:
         if isinstance(each, ast.keyword):
             in_keyword_section = True
-        elif in_keyword_section:
+        elif in_keyword_section and not isinstance(each, ast.Starred):
             error = SyntaxError()
             error.lineno = loc['lineno']
             error.msg = 'non-keyword argument follows keyword argument'
