@@ -49,7 +49,7 @@ small_stmt  ::= it=(expr_stmt | del_stmt | pass_stmt | flow_stmt |              
 expr_stmt   ::= lhs=testlist_star_expr (ann=annassign | aug=augassign aug_exp=(yield_expr|testlist) |         # ------------------------------
                      ('=' rhs<<(yield_expr|testlist_star_expr))*)                                             -> expr_stmt_rewrite(lhs, ann, aug, aug_exp, rhs)
 annassign   ::= ':' anno=test ['=' value=test]                                                                -> (anno, value)
-testlist_star_expr ::= seq<<(test|star_expr) (',' seq<<(test|star_expr))* [force_tuple=',']                   -> Tuple(seq) if len(seq) > 1 or force_tuple else seq[0]                                                
+testlist_star_expr ::= seq<<(test|star_expr) (',' seq<<(test|star_expr))* [force_tuple=',']                   -> Tuple(seq, Load()) if len(seq) > 1 or force_tuple else seq[0]                                                
 augassign   ::= it=('+=' | '-=' | '*=' | '@=' | '/=' | '%=' | '&=' | '|=' | '^=' |                            # ------------------------------
                     '<<=' | '>>=' | '**=' | '//=')                                                            -> augassign_rewrite(it)
 # For normal and annotated assignments, additional restrictions enforced by the interpreter                   -------------------------------
