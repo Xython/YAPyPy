@@ -28,6 +28,8 @@ print(res.tag.show_resolution())
 
 stmt = parse("""
 from os.path import join
+from os import *
+from os.path import *
 def f(x):
     x
 

@@ -382,11 +382,17 @@ def py_emit(node: ast.Import, ctx: Context):
 
 @py_emit.case(ast.ImportFrom)
 def py_emit(node: ast.ImportFrom, ctx: Context):
-    ctx.bc.append(Instr("LOAD_CONST", node.level, lineno=node.lineno))
-    ctx.bc.append(Instr("LOAD_CONST", node.names, lineno=node.lineno))
-    ctx.bc.append(Instr("IMPORT_NAME", node.module, lineno=node.lineno))
-    for name in node.names:
-        ctx.bc.append(Instr("IMPORT_FROM", name.name, lineno=node.lineno))
-        as_name = name.name or name.asname
-        ctx.store_name(as_name, lineno=node.lineno)
-    ctx.bc.append(POP_TOP(lineno=node.lineno))
+    lineno = node.lineno
+    ctx.bc.append(Instr("LOAD_CONST", node.level, lineno=lineno))
+    names = tuple(name.name for name in node.names)
+    ctx.bc.append(LOAD_CONST(names, lineno=lineno))
+
+    ctx.bc.append(Instr("IMPORT_NAME", node.module, lineno=lineno))
+    if names == ('*', ):
+        ctx.bc.append(Instr('IMPORT_STAR', lineno=lineno))
+    else:
+        for name in node.names:
+            ctx.bc.append(Instr("IMPORT_FROM", name.name, lineno=lineno))
+            as_name = name.name or name.asname
+            ctx.store_name(as_name, lineno=lineno)
+        ctx.bc.append(POP_TOP(lineno=lineno))
