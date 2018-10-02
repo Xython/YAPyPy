@@ -1,7 +1,5 @@
 from rbnf.core.Tokenizer import Tokenizer
-import yapypy.extended_python.extended_ast as ex_ast
 import ast
-
 import typing as t
 
 
