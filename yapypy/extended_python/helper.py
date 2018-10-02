@@ -1,26 +1,29 @@
 from rbnf.core.Tokenizer import Tokenizer
 import ast
 import typing as t
-store = ast.Store()
 
 
-class AsStore(ast.NodeVisitor):
-    def _store(self, node):
-        node.ctx = store
+class ExprContextFixer(ast.NodeVisitor):
+    def __init__(self, ctx):
+        self.ctx = ctx
+
+    def _store_simply(self, node):
+        node.ctx = self.ctx
+
+    def _store_recursively(self, node):
+        node.ctx = self.ctx
         self.generic_visit(node)
 
-    def visit_Name(self, node):
-        node.ctx = store
+    visit_Name = _store_simply
+    visit_Subscript = _store_simply
+    visit_Attribute = _store_simply
+    visit_Tuple = _store_recursively
+    visit_List = _store_recursively
+    visit_ExDict = _store_recursively
 
-    def visit_Subscript(self, node):
-        node.ctx = store
 
-    def visit_Attribute(self, node):
-        node.ctx = store
-
-    def _visit_seq(self, node):
-        node.ctx = store
-        self.generic_visit(node)
+_fix_store = ExprContextFixer(ast.Store()).visit
+_fix_del = ExprContextFixer(ast.Del()).visit
 
 
 class Loc:
@@ -41,12 +44,17 @@ class LocatedError(Exception):
 
 loc = Loc()
 
-_as_store = AsStore().visit
-
 
 def as_store(it):
     if hasattr(it, '_fields'):
-        _as_store(it)
+        _fix_store(it)
+        return it
+    return it
+
+
+def as_del(it):
+    if hasattr(it, '_fields'):
+        _fix_del(it)
         return it
     return it
 
@@ -215,6 +223,7 @@ def augassign_rewrite(it: Tokenizer):
 
 
 def expr_stmt_rewrite(lhs, ann, aug, aug_exp, rhs: t.Optional[list]):
+
     if rhs:
         as_store(lhs)
         *init, end = rhs
@@ -230,6 +239,8 @@ def expr_stmt_rewrite(lhs, ann, aug, aug_exp, rhs: t.Optional[list]):
     if aug_exp:
         as_store(lhs)
         return ast.AugAssign(lhs, aug(), aug_exp)
+
+    # NO AS STORE HERE!
     return ast.Expr(lhs)
 
 

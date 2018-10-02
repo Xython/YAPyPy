@@ -53,7 +53,7 @@ testlist_star_expr ::= seq<<(test|star_expr) (',' seq<<(test|star_expr))* [force
 augassign   ::= it=('+=' | '-=' | '*=' | '@=' | '/=' | '%=' | '&=' | '|=' | '^=' |                            # ------------------------------
                     '<<=' | '>>=' | '**=' | '//=')                                                            -> augassign_rewrite(it)
 # For normal and annotated assignments, additional restrictions enforced by the interpreter                   -------------------------------
-del_stmt   ::= mark='del' tp=exprlist                                                                         -> Delete(tp.elts if isinstance(tp, Tuple) else [tp], **loc @ mark)
+del_stmt   ::= mark='del' tp=exprlist                                                                         -> Delete([as_del(elt) for elt in tp.elts] if isinstance(tp, Tuple) else [as_del(tp)], **loc @ mark)
 pass_stmt  ::= mark='pass'                                                                                    -> Pass(**loc @ mark)
 flow_stmt  ::= it=(break_stmt | continue_stmt | return_stmt | raise_stmt | yield_stmt)                        -> it
 break_stmt ::= mark='break'                                                                                   -> Break(**loc @ mark)
@@ -192,7 +192,7 @@ dictorsetmaker ::= (((keys<<test ':' values<<test | keys<<dict_unpack_s values<<
                      (comp=comp_for | (',' (keys<<test ':' values<<test | keys<<dict_unpack_s values<<expr))* [','])) |
                     (values<<(test | star_expr)
                      (comp=comp_for | (',' values<<(test | star_expr))* [','])) )
-                    -> if not comp: return Dict(keys, values) if keys else Set(values)
+                    -> if not comp: return ExDict(keys, values, Load()) if keys else Set(values)
                        DictComp(*keys, *values, comp) if keys else SetComp(*values, comp)
 
 classdef ::= mark='class' name=NAME arglist=arglist ':' suite=suite
@@ -213,7 +213,7 @@ argument  ::= (
                   arg
 
 comp_for_item ::= [is_async='async'] 'for' target=exprlist 'in' iter=or_test ('if' ifs<<test_nocond)* 
-                  -> comprehension(target, iter, ifs, bool(is_async))
+                  -> comprehension(as_store(target), iter, ifs, bool(is_async))
                   
 comp_for      ::= generators=comp_for_item+ -> list(generators)
 
