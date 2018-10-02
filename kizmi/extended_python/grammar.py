@@ -173,10 +173,9 @@ testlist_comp  ::= values<<(test|star_expr) ( comp=comp_for | (',' values<<(test
                      app
 
 # `ExtSlice` is ignored here. We don't need this optimization for this project.
-trailer        ::= call='(' [arglist=arglist] ')' | mark='[' subscr=subscriptlist ']' | mark='.' attr=NAME
-                    -> args, kwargs = split_args_helper(arglist or [])
-                       (lambda value: Slice(value, subscr, **loc @ mark)) if subscr else\
-                       (lambda value: Call(value, args, kwargs, **loc @ call)) if call else\
+trailer        ::=  arglist=arglist | mark='[' subscr=subscriptlist ']' | mark='.' attr=NAME
+                    -> (lambda value: Slice(value, subscr, **loc @ mark))        if subscr  else\
+                       (lambda value: Call(value, *split_args_helper(arglist)))  if arglist else\
                        (lambda value: Attribute(value, attr.value, Load(), **loc @ mark))                       
                        
 # `Index` will be deprecated in Python3.8. 
@@ -196,11 +195,10 @@ dictorsetmaker ::= (((keys<<test ':' values<<test | keys<<dict_unpack_s values<<
                     -> if not comp: return Dict(keys, values) if keys else Set(values)
                        DictComp(*keys, *values, comp) if keys else SetComp(*values, comp)
 
-classdef ::= mark='class' name=NAME ['(' [arglist=arglist] ')'] ':' suite=suite
-             -> args, kwargs = split_args_helper(arglist or [])
-                ClassDef(name.value, args, kwargs, suite, [], **loc @ mark)
+classdef ::= mark='class' name=NAME arglist=arglist ':' suite=suite
+             -> ClassDef(name.value, *split_args_helper(arglist), suite, [], **loc @ mark)
 
-arglist   ::= seq<<argument (',' seq<<argument)*  [','] -> seq
+arglist   ::= mark='(' [seq<<argument (',' seq<<argument)*  [',']] ')' -> check_call_args(loc @ mark, seq or [])
 
 argument  ::= ( 
                 key=NAME '=' value=test |

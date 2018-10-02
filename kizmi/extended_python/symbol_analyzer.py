@@ -140,7 +140,6 @@ class Tag(ast.AST):
         self.tag = tag
 
 
-
 def _visit_name(self, node: ast.Name):
     symtable = self.symtable
     name = node.id

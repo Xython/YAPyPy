@@ -1,7 +1,6 @@
 from rbnf.core.Tokenizer import Tokenizer
 import ast
 import typing as t
-
 store = ast.Store()
 
 
@@ -32,6 +31,12 @@ class Loc:
             'col_offset':
             other.col_offset if hasattr(other, 'col_offset') else other.colno
         }
+
+
+class LocatedError(Exception):
+    def __init__(self, lineno: int, exc: Exception):
+        self.lineno = lineno
+        self.exc = exc
 
 
 loc = Loc()
@@ -265,3 +270,16 @@ def try_stmt_rewrite(mark, body, excs, rescues, orelse, final):
 def with_stmt_rewrite(mark, items, body, is_async=False):
     ty = ast.AsyncWith if is_async else ast.With
     return ty(items, body, **loc @ mark)
+
+
+def check_call_args(loc, seq: t.List[ast.expr]):
+    in_keyword_section = False
+    for each in seq:
+        if isinstance(each, ast.keyword):
+            in_keyword_section = True
+        elif in_keyword_section:
+            error = SyntaxError()
+            error.lineno = loc['lineno']
+            error.msg = 'non-keyword argument follows keyword argument'
+            raise error
+    return seq
