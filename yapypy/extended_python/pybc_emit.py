@@ -110,7 +110,7 @@ def py_emit(node: ast.Module, ctx: Context):
 
 @py_emit.case(ast.Str)
 def py_emit(node: ast.Str, ctx: Context):
-    ctx.bc.append(LOAD_CONST(node.s, lineno=node.s))
+    ctx.bc.append(LOAD_CONST(node.s, lineno=node.lineno))
 
 
 @py_emit.case(ast.JoinedStr)
@@ -259,7 +259,7 @@ def py_emit(node: ast.Name, ctx: Context):
 @py_emit.case(ast.Expr)
 def py_emit(node: ast.Expr, ctx: Context):
     py_emit(node.value, ctx)
-    ctx.bc.append(Instr('POP_TOP', lineno=node.lineno))
+    ctx.bc.append(POP_TOP(lineno=node.lineno))
 
 
 @py_emit.case(ast.Call)
@@ -367,19 +367,26 @@ def py_emit(node: ast.Num, ctx: Context):
     ctx.bc.append(Instr("LOAD_CONST", node.n, lineno=node.lineno))
 
 
-@py_stmt_emit.case(ast.Import)
-def py_stmt_emit(node: ast.Import, ctx: Context):
+@py_emit.case(ast.Import)
+def py_emit(node: ast.Import, ctx: Context):
     for name in node.names:
-        ctx.bc.append(Instr("LOAD_CONST", 0, lineno=node.lineno))      # TOS1 for level, default to zero
-        ctx.bc.append(Instr("LOAD_CONST", None, lineno=node.lineno))   # TOS for fromlist()
+        ctx.bc.append(
+            Instr("LOAD_CONST", 0,
+                  lineno=node.lineno))  # TOS1 for level, default to zero
+        ctx.bc.append(Instr("LOAD_CONST", None,
+                            lineno=node.lineno))  # TOS for fromlist()
         ctx.bc.append(Instr("IMPORT_NAME", name.name, lineno=node.lineno))
+        as_name = name.name or name.asname
+        ctx.store_name(as_name, lineno=node.lineno)
 
 
-@py_stmt_emit.case(ast.ImportFrom)
-def py_stmt_emit(node: ast.ImportFrom, ctx: Context):
+@py_emit.case(ast.ImportFrom)
+def py_emit(node: ast.ImportFrom, ctx: Context):
     ctx.bc.append(Instr("LOAD_CONST", node.level, lineno=node.lineno))
     ctx.bc.append(Instr("LOAD_CONST", node.names, lineno=node.lineno))
     ctx.bc.append(Instr("IMPORT_NAME", node.module, lineno=node.lineno))
     for name in node.names:
         ctx.bc.append(Instr("IMPORT_FROM", name.name, lineno=node.lineno))
-        ctx.bc.append(Instr("STORE_FAST", name.name, lineno=node.lineno))
+        as_name = name.name or name.asname
+        ctx.store_name(as_name, lineno=node.lineno)
+    ctx.bc.append(POP_TOP(lineno=node.lineno))
