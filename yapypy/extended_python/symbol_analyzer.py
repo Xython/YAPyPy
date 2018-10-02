@@ -136,8 +136,11 @@ class Tag(ast.AST):
     tag: SymTable
 
     def __init__(self, it, tag):
+        super().__init__()
         self.it = it
         self.tag = tag
+
+    _fields = 'it',
 
 
 def _visit_name(self, node: ast.Name):

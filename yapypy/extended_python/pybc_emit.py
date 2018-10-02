@@ -1,6 +1,6 @@
 import ast
-import dis
 from typing import NamedTuple
+import yapypy.extended_python.extended_ast as ex_ast
 from yapypy.extended_python.symbol_analyzer import SymTable, Tag
 from yapypy.utils.namedlist import INamedList, as_namedlist, trait
 from yapypy.utils.instrs import *
@@ -56,6 +56,17 @@ class Context(INamedList, metaclass=trait(as_namedlist)):
             self.bc.append(Instr('LOAD_FAST', name, lineno=lineno))
         else:
             self.bc.append(Instr("LOAD_GLOBAL", name, lineno=lineno))
+
+    def del_name(self, name, lineno=None):
+        sym_tb = self.sym_tb
+        if name in sym_tb.cellvars:
+            self.bc.append(Instr('DELETE_DEREF', CellVar(name), lineno=lineno))
+        elif name in sym_tb.freevars:
+            self.bc.append(Instr('DELETE_DEREF', FreeVar(name), lineno=lineno))
+        elif name in sym_tb.bounds:
+            self.bc.append(Instr('DELETE_FAST', name, lineno=lineno))
+        else:
+            self.bc.append(Instr("DELETE_GLOBAL", name, lineno=lineno))
 
     def store_name(self, name, lineno=None):
         sym_tb = self.sym_tb
@@ -229,6 +240,7 @@ def py_emit(node: ast.FunctionDef, new_ctx: Context):
 
     new_ctx.bc.append(Instr('LOAD_CONST', None))
     new_ctx.bc.append(Instr('RETURN_VALUE'))
+    print(new_ctx.bc)
     inner_code = new_ctx.bc.to_code()
 
     parent_ctx.bc.append(Instr('LOAD_CONST', inner_code, lineno=node.lineno))
@@ -242,7 +254,7 @@ def py_emit(node: ast.FunctionDef, new_ctx: Context):
     parent_ctx.store_name(node.name, lineno=node.lineno)
 
 
-@py_emit.case(ast.Dict)
+@py_emit.case(ex_ast.ExDict)
 def py_emit(node: ast.Dict, ctx: Context):
     keys = node.keys
     values = node.values
@@ -268,10 +280,12 @@ def py_emit(node: ast.Assign, ctx: Context):
 
 @py_emit.case(ast.Name)
 def py_emit(node: ast.Name, ctx: Context):
-    if isinstance(node.ctx, ast.Load):
-        ctx.load_name(node.id, lineno=node.lineno)
-    else:
-        ctx.store_name(node.id, lineno=node.lineno)
+    {
+        ast.Load: ctx.load_name,
+        ast.Store: ctx.store_name,
+        ast.Del: ctx.del_name
+    }[type(node.ctx)](
+        node.id, lineno=node.lineno)
 
 
 @py_emit.case(ast.Expr)
@@ -524,15 +538,18 @@ def py_emit(node: ast.Import, ctx: Context):
 @py_emit.case(ast.ImportFrom)
 def py_emit(node: ast.ImportFrom, ctx: Context):
     lineno = node.lineno
+
     ctx.bc.append(Instr("LOAD_CONST", node.level, lineno=lineno))
     names = tuple(name.name for name in node.names)
     ctx.bc.append(LOAD_CONST(names, lineno=lineno))
-
     ctx.bc.append(Instr("IMPORT_NAME", node.module, lineno=lineno))
+
     if names == ('*', ):
         ctx.bc.append(Instr('IMPORT_STAR', lineno=lineno))
+
     else:
         for name in node.names:
+
             ctx.bc.append(Instr("IMPORT_FROM", name.name, lineno=lineno))
             as_name = name.name or name.asname
             ctx.store_name(as_name, lineno=lineno)
