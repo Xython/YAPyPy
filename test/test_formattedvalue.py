@@ -6,6 +6,8 @@ from yapypy.extended_python.parser import parse
 from yapypy.extended_python.symbol_analyzer import ASTTagger, SymTable, to_tagged_ast, Tag
 from yapypy.extended_python.pybc_emit import py_compile
 code = r"""
+
+from datetime import datetime
 p = print
 A = "A"
 
@@ -29,7 +31,8 @@ p (f'{a:d} {a:#x} {a:#o} {a:#b}')
 
 p (f'{123456789:,}')
 p (f'{19/22:.2%}')
-"p ( f'{time:%Y-%m-%d %H:%M:%S}' ) need import datetime"
+
+p (f'{datetime.now():%Y-%m-%d %H:%M:%S}' ) 
 
 """
 

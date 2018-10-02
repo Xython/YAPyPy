@@ -134,21 +134,22 @@ def py_emit(node: ast.JoinedStr, ctx: Context):
 
 @py_emit.case(ast.FormattedValue)
 def py_emit(node: ast.FormattedValue, ctx: Context):
-    conversion  = node.conversion
+    conversion = node.conversion
     format_spec = node.format_spec
-    value       = node.value
+    value = node.value
     maps = {
-            97:3,                          # ascii
-            114:2,                         # repr
-            115:1,                         # str
-            -1:0 ,                         # None
-            }
-    py_emit(value,ctx)
+        97: 3,  # ascii
+        114: 2,  # repr
+        115: 1,  # str
+        -1: 0,  # None
+    }
+    py_emit(value, ctx)
     flags = maps[conversion]
     if format_spec:
-        py_emit(format_spec,ctx)
+        py_emit(format_spec, ctx)
         flags += 4
-    ctx.bc.append( Instr("FORMAT_VALUE",flags) )
+    ctx.bc.append(Instr("FORMAT_VALUE", flags))
+
 
 @py_emit.case(ast.Tuple)
 def py_emit(node: ast.Tuple, ctx: Context):
@@ -443,6 +444,17 @@ def py_emit(node: ast.YieldFrom, ctx: Context):
     append(Instr('GET_YIELD_FROM_ITER', lineno=node.lineno))
     append(Instr('LOAD_CONST', None, lineno=node.lineno))
     append(Instr("YIELD_FROM", lineno=node.lineno))
+
+
+@py_emit.case(ast.Attribute)
+def py_emit(node: ast.Attribute, ctx: Context):
+    py_emit(node.value, ctx)
+
+    ctx.bc.append({
+        ast.Store: STORE_ATTR,
+        ast.Load: LOAD_ATTR,
+        ast.Del: DELETE_ATTR
+    }[type(node.ctx)](node.attr, lineno=node.lineno))
 
 
 @py_emit.case(ast.Yield)

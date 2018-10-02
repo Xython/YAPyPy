@@ -1,6 +1,17 @@
 from bytecode import Instr
 
 
+def LOAD_ATTR(attr: str, *, lineno=None):
+    return Instr('LOAD_ATTR', attr, lineno=lineno)
+
+
+def STORE_ATTR(attr: str, *, lineno=None):
+    return Instr('STORE_ATTR', attr, lineno=lineno)
+
+def DELETE_ATTR(attr: str, *, lineno=None):
+    return Instr('DELETE_ATTR', attr, lineno=lineno)
+
+
 def LOAD_CONST(var: object, *, lineno=None):
     return Instr('LOAD_CONST', var, lineno=lineno)
 
