@@ -123,8 +123,21 @@ def py_emit(node: ast.JoinedStr, ctx: Context):
 
 @py_emit.case(ast.FormattedValue)
 def py_emit(node: ast.FormattedValue, ctx: Context):
-    raise NotImplemented
-
+    conversion  = node.conversion
+    format_spec = node.format_spec
+    value       = node.value
+    maps = {
+            97:3,                          # ascii
+            114:2,                         # repr
+            115:1,                         # str
+            -1:0 ,                         # None
+            }
+    py_emit(value,ctx)
+    flags = maps[conversion]
+    if format_spec:
+        py_emit(format_spec,ctx)
+        flags += 4
+    ctx.bc.append( Instr("FORMAT_VALUE",flags) )
 
 @py_emit.case(ast.Tuple)
 def py_emit(node: ast.Tuple, ctx: Context):
