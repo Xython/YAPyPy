@@ -3,12 +3,15 @@ from rbnf.core.Tokenizer import Tokenizer
 from rbnf.core.CachingPool import ConstStrPool
 from rbnf.core.State import State
 from rbnf.easy import Language, build_parser, build_language, ze
+from rbnf.edsl.rbnf_analyze import check_parsing_complete
 from keyword import kwlist
-from .grammar import RBNF
-from kizmi.extended_python import helper
+from yapypy.extended_python.grammar import RBNF
+from yapypy.extended_python import helper
+
 import ast
 import typing as t
-
+import traceback
+import sys
 import io
 cast = ConstStrPool.cast_to_const
 
@@ -45,8 +48,42 @@ build_language(RBNF, python, '<grammar>')
 python_parser = python.named_parsers['file_input']
 
 
+def _find_error(source_code, tokens, state):
+    def _find_nth(string: str, element, nth: int = 0):
+        _pos: int = string.find(element)
+        if _pos is -1:
+            return 0
+
+        while nth:
+            _pos = string.index(element, _pos) + 1
+            nth -= 1
+        return _pos
+
+    if not tokens:
+        return 0, source_code[:20]
+
+    if state.end_index < len(tokens):
+        max_fetched = state.max_fetched
+        if max_fetched >= len(tokens):
+            tk = tokens[-1]
+        else:
+            tk: Tokenizer = tokens[max_fetched]
+        lineno, colno = tk.lineno, tk.colno
+        pos = _find_nth(source_code, '\n', lineno - 1) + colno
+        left = max(0, pos - 25)
+        where = source_code[left:min(pos + 25, len(source_code))]
+        return left, where
+    raise RuntimeError
+
+
 def parse(text, filename=None):
     tokens = tuple(lex(text))
     state = State(python.implementation, filename=filename)
-    parsed = python_parser.match(tokens, state)
-    return ze.ResultDescription(state, parsed.value, tokens)
+    try:
+        parsed = python_parser.match(tokens, state)
+        return ze.ResultDescription(state, parsed.value, tokens)
+    except SyntaxError as e:
+        e.filename = filename or '<unknown>'
+        e.offset, e.text = _find_error(text, tokens, state)
+        e.__traceback__ = None
+        raise e

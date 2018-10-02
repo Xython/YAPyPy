@@ -1,8 +1,8 @@
 import ast
 from typing import NamedTuple
-from kizmi.extended_python.symbol_analyzer import SymTable, Tag
-from kizmi.utils.namedlist import INamedList, as_namedlist, trait
-from kizmi.utils.instrs import *
+from yapypy.extended_python.symbol_analyzer import SymTable, Tag
+from yapypy.utils.namedlist import INamedList, as_namedlist, trait
+from yapypy.utils.instrs import *
 from Redy.Magic.Pattern import Pattern
 from bytecode import *
 from bytecode.concrete import FreeVar, CellVar

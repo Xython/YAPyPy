@@ -1,31 +1,11 @@
-from kizmi.database.dbg_grammar import *
-from kizmi.database.dbg_emit import *
-from kizmi.extended_python.parser import parse as parse_ext_py
-
+from yapypy.extended_python.parser import parse as parse_ext_py
 from rbnf.edsl.rbnf_analyze import check_parsing_complete
 from Redy.Tools.PathLib import Path
 from wisepy.talking import Talking
-
 from importlib._bootstrap_external import MAGIC_NUMBER
 import marshal, struct, time, os
 
-dbg_lang = Talking()
-
 python_ex = Talking()
-
-
-@dbg_lang
-def gen(i: 'input filename', o: 'output filename'):
-    """
-    generate python source code for dbg-lang
-    """
-    with Path(i).open('r') as fr:
-        code = fr.read()
-    res = parse(code)
-    check_parsing_complete(code, res.tokens, res.state)
-
-    with Path(o).open('w') as fw:
-        fw.write(code_gen(res.result))
 
 
 def compile_ex_python_from_filename(filename):
@@ -73,10 +53,6 @@ def _compile(*filenames: str):
             f.write(timestamp)
             f.write(b'A\x00\x00\x00')
             f.write(marshalled_code_object)
-
-
-def dbg_lang_cli():
-    dbg_lang.on()
 
 
 def python_ex_cli():

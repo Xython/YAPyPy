@@ -1,5 +1,5 @@
 import ast
-from kizmi.utils.namedlist import INamedList, as_namedlist, trait
+from yapypy.utils.namedlist import INamedList, as_namedlist, trait
 from typing import NamedTuple, List, Optional, Union
 from pprint import pformat
 
@@ -138,7 +138,6 @@ class Tag(ast.AST):
     def __init__(self, it, tag):
         self.it = it
         self.tag = tag
-
 
 
 def _visit_name(self, node: ast.Name):
