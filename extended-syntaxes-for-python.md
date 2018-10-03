@@ -1,7 +1,7 @@
 
 # Python语法扩展
 
-源码见: [kizmi/extended_python](https://github.com/thautwarm/kizmi/tree/master/kizmi/extended_python)
+源码见: [yapypy/extended_python](./yapypy/extended_python)
 
 ## 背景
 
@@ -195,4 +195,3 @@ else:
         else:
             pass
 ```
-

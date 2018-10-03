@@ -158,6 +158,61 @@ def py_emit(node: ast.FormattedValue, ctx: Context):
     ctx.bc.append(Instr("FORMAT_VALUE", flags))
 
 
+@py_emit.case(ast.Raise)
+def py_emit(node: ast.Raise, ctx: Context):
+    """
+    test:
+    >>> try:
+    ...     raise
+    ... except RuntimeError as e:
+    ...     assert isinstance(e,RuntimeError)
+    >>> try:
+    ...     raise TypeError('typeerror')
+    ... except TypeError as e:
+    ...     assert isinstance(e,TypeError)
+    >>> try:
+    ...     raise ValueError('value') from NameError('name')
+    ... except ValueError as e:
+    ...     assert isinstance(e,ValueError)
+    ...     assert isinstance(e.__cause__,NameError)
+    """
+    exc = node.exc
+    cause = node.cause
+    argc = 0
+    if exc:
+        py_emit(exc, ctx)
+        argc += 1
+    if cause:
+        py_emit(cause, ctx)
+        argc += 1
+    ctx.bc.append(Instr("RAISE_VARARGS", argc))
+
+
+@py_emit.case(ast.Assert)
+def py_emit(node: ast.Assert, ctx: Context):
+    """
+    test:
+    >>> try:
+    ...     assert 0,"num is zero"
+    ... except AssertError as e:
+    ...     assert isinstance(e,AssertError)
+    """
+    test = node.test
+    msg = node.msg
+    label = Label()
+    py_emit(test, ctx)
+    ctx.bc.append(Instr("POP_JUMP_IF_TRUE", label))
+    # current_pos = ctx.bc.__len__() - 1
+    # calc msg and
+    ctx.bc.append(Instr("LOAD_GLOBAL", "AssertionError"))
+    if msg:
+        py_emit(msg, ctx)
+        ctx.bc.append(Instr("CALL_FUNCTION", 1)) # AssertError(<arg>) , awalys 1
+    ctx.bc.append(Instr("RAISE_VARARGS", 1)) # <argc> awalys 1
+    ctx.bc.append(label)
+    #ctx.bc[current_pos] = ctx.bc.__len__()
+
+
 @py_emit.case(ast.Tuple)
 def py_emit(node: ast.Tuple, ctx: Context):
     is_lhs = isinstance(node.ctx, ast.Store)
