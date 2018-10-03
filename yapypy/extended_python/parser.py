@@ -78,7 +78,8 @@ def _find_error(source_code, tokens, state):
 
 
 def parse(text, filename=None):
-    tokens = tuple(lex(text+ '\n'))
+    text = text + '\n'  # as a workaround
+    tokens = tuple(lex(text))
     state = State(python.implementation, filename=filename)
     try:
         parsed = python_parser.match(tokens, state)

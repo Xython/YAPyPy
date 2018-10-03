@@ -33,11 +33,11 @@ res: Tag = to_tagged_ast(stmt)
 print(res.tag.show_resolution())
 
 stmt = parse("""
-assert not hasattr(1, 'x')
+print( (1, *(1, 2, 3)) )
 """).result
 
 pprint(stmt)
-exec(py_compile(stmt))
+dis.dis(py_compile(stmt))
 
 try:
     parse_expr('f(a=1, b)\n')
