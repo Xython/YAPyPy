@@ -196,7 +196,7 @@ def py_emit(node: ast.Assert, ctx: Context):
     py_emit(test, ctx)
     ctx.bc.append(Instr("POP_JUMP_IF_TRUE", label))
     # current_pos = ctx.bc.__len__() - 1
-    # calc msg and 
+    # calc msg and
     ctx.bc.append(Instr("LOAD_GLOBAL", "AssertionError"))
     if msg:
         py_emit(msg, ctx)
@@ -204,7 +204,8 @@ def py_emit(node: ast.Assert, ctx: Context):
     ctx.bc.append(Instr("RAISE_VARARGS", 1)) # <argc> awalys 1
     ctx.bc.append(label)
     #ctx.bc[current_pos] = ctx.bc.__len__()
-    
+
+
 @py_emit.case(ast.Tuple)
 def py_emit(node: ast.Tuple, ctx: Context):
     is_lhs = isinstance(node.ctx, ast.Store)
