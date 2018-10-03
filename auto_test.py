@@ -14,11 +14,11 @@ Space   := ' '
 NL      := R'\n'
 Keyword := 'test:' 'prepare:' '>>>' 
 NoSwitch ::= ~Keyword
-Doctest ::= [(~'prepare:')* 'prepare:' (NoSwitch* '>>>' prepare_lines<< (~NL)+ NL+)*]
-            (~'test:')* 'test:' (NoSwitch* '>>>' test_lines<< (~NL)+)* 
+Doctest ::= [(~'prepare:')* 'prepare:' (NoSwitch* '>>>' prepare_lines<<((~NL)+) NL+)*]
+            (~'test:')* 'test:' (NoSwitch* '>>>' test_lines<<((~NL)+))* 
             ->
-              prepare_lines = tuple(map(recover_codes, prepare_lines)) if prepare_lines else ()
-              test          = tuple(map(recover_codes, test_lines))    if test_lines else ()
+              prepare_lines = recover_codes(sum(prepare_lines, [])) if prepare_lines else ''
+              test          = recover_codes(sum(test_lines, []))    if test_lines else ''
               return prepare_lines, test
                 
 lexer   := R'.'
@@ -37,7 +37,7 @@ def dedent_all(text: str):
 
 class DocStringsCollector(ast.NodeVisitor):
     def __init__(self):
-        self.docs = {}
+        self.docs = []
 
     def _visit_fn(self, node: ast.FunctionDef):
         head, *_ = node.body
@@ -48,7 +48,7 @@ class DocStringsCollector(ast.NodeVisitor):
                 res = ze_exp.match(value.s).result
 
                 if res:
-                    self.docs[node.name] = node.lineno, *res
+                    self.docs.append((node.name, node.lineno, *res))
         self.generic_visit(node)
 
     visit_FunctionDef = _visit_fn
@@ -67,17 +67,15 @@ for each in filter(lambda p: p[-1].endswith('.py'), yapypy.collect()):
         mod = ast.parse(fr.read())
         collector.visit(mod)
 
-
     suites = []
 
     mod_name, _ = splitext(each.relative())
 
-    for idx, (fn_name, (lineno, prepare_suites,
-                        test_suites)) in enumerate(collector.docs.items()):
+    for idx, [fn_name, lineno, prepare_code,
+              test_code] in enumerate(collector.docs):
+        prepare_code = dedent_all(prepare_code)
+        test_code = dedent_all(test_code)
         context = {}
-        print(prepare_suites, test_suites)
-        prepare_code =  dedent_all('\n'.join(prepare_suites))
-
         try:
             code = compile(prepare_code, filename, "exec")
         except SyntaxError as exc:
@@ -89,8 +87,6 @@ for each in filter(lambda p: p[-1].endswith('.py'), yapypy.collect()):
         bc.first_lineno = lineno
         exec(bc.to_code(), context)
 
-        test_code = dedent_all('\n'.join(test_suites))
-        print(test_code)
         try:
             code = py_compile(parse(test_code).result)
         except SyntaxError as exc:

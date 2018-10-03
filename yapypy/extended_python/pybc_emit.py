@@ -163,18 +163,18 @@ def py_emit(node: ast.Raise, ctx: Context):
     """
     test:
     >>> try:
-    ...     raise
-    ... except RuntimeError as e:
-    ...     assert isinstance(e,RuntimeError)
+    >>>     raise
+    >>> except RuntimeError as e:
+    >>>     assert isinstance(e,RuntimeError)
     >>> try:
-    ...     raise TypeError('typeerror')
-    ... except TypeError as e:
-    ...     assert isinstance(e,TypeError)
+    >>>     raise TypeError('typeerror')
+    >>> except TypeError as e:
+    >>>     assert isinstance(e,TypeError)
     >>> try:
-    ...     raise ValueError('value') from NameError('name')
-    ... except ValueError as e:
-    ...     assert isinstance(e,ValueError)
-    ...     assert isinstance(e.__cause__,NameError)
+    >>>     raise ValueError('value') from NameError('name')
+    >>> except ValueError as e:
+    >>>     assert isinstance(e,ValueError)
+    >>>     assert isinstance(e.__cause__,NameError)
     """
     exc = node.exc
     cause = node.cause
@@ -193,24 +193,30 @@ def py_emit(node: ast.Assert, ctx: Context):
     """
     test:
     >>> try:
-    ...     assert 0,"num is zero"
-    ... except AssertError as e:
-    ...     assert isinstance(e,AssertError)
+    >>>     assert 0,"num is zero"
+    >>> except AssertionError as e:
+    >>>     assert isinstance(e, AssertionError)
     """
     test = node.test
     msg = node.msg
     label = Label()
     py_emit(test, ctx)
-    ctx.bc.append(Instr("POP_JUMP_IF_TRUE", label))
-    # current_pos = ctx.bc.__len__() - 1
+    ctx.bc.append(POP_JUMP_IF_TRUE(label, lineno=node.lineno))
+
     # calc msg and
-    ctx.bc.append(Instr("LOAD_GLOBAL", "AssertionError"))
+    ctx.bc.append(LOAD_GLOBAL("AssertionError", lineno=node.lineno))
     if msg:
         py_emit(msg, ctx)
-        ctx.bc.append(Instr("CALL_FUNCTION", 1)) # AssertError(<arg>) , awalys 1
-    ctx.bc.append(Instr("RAISE_VARARGS", 1)) # <argc> awalys 1
+        ctx.bc.append(Instr("CALL_FUNCTION",
+                            1))  # AssertError(<arg>) , awalys 1
+    ctx.bc.append(Instr("RAISE_VARARGS", 1))  # <argc> awalys 1
     ctx.bc.append(label)
-    #ctx.bc[current_pos] = ctx.bc.__len__()
+
+
+@py_emit.case(ast.Delete)
+def py_emit(node: ast.Delete, ctx: Context):
+    for each in node.targets:
+        py_emit(each, ctx)
 
 
 @py_emit.case(ast.Tuple)
@@ -530,20 +536,6 @@ def py_emit(node: ast.Attribute, ctx: Context):
     }[type(node.ctx)](node.attr, lineno=node.lineno))
 
 
-@py_emit.case(ast.Assert)
-def py_emit(node: ast.Assert, ctx: Context):
-    """
-    """
-    py_emit(node.test, ctx)
-    final = Label()
-    ctx.bc.append(Instr('POP_JUMP_IF_TRUE', final))
-    ctx.bc.append(Instr('LOAD_CONST', AssertionError, lineno=node.lineno))
-    py_emit(node.msg, ctx)
-    CALL_FUNCTION(1, lineno=node.lineno)
-    RAISE_VARARGS(1, lineno=node.lineno)
-    ctx.bc.append(final)
-
-
 @py_emit.case(ast.Yield)
 def py_emit(node: ast.Yield, ctx: Context):
     py_emit(node.value, ctx)
@@ -712,12 +704,15 @@ def py_emit(node: ast.Compare, ctx: Context):
 
             py_emit(expr, ctx)
             if idx == last_idx_of_comparators:
-                ctx.bc.append(Instr("JUMP_FORWARD", label_out, lineno=node.lineno))
+                ctx.bc.append(
+                    Instr("JUMP_FORWARD", label_out, lineno=node.lineno))
             else:
                 ctx.bc.append(DUP_TOP(lineno=node.lineno))
                 ctx.bc.append(Instr("ROT_THREE", lineno=node.lineno))
                 ctx.bc.append(Instr("COMPARE_OP", op, lineno=node.lineno))
-                ctx.bc.append(Instr("JUMP_IF_FALSE_OR_POP", label_rot, lineno=node.lineno))
+                ctx.bc.append(
+                    Instr(
+                        "JUMP_IF_FALSE_OR_POP", label_rot, lineno=node.lineno))
 
         ctx.bc.append(label_rot)
         ctx.bc.append(Instr("ROT_TWO", lineno=node.lineno))
@@ -725,6 +720,6 @@ def py_emit(node: ast.Compare, ctx: Context):
         ctx.bc.append(label_out)
     else:
         py_emit(node.comparators[0], ctx)
-        op_type= type(node.ops[0])
+        op_type = type(node.ops[0])
         op = ops.get(op_type)
         ctx.bc.append(Instr("COMPARE_OP", op, lineno=node.lineno))
