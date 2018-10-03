@@ -1,3 +1,9 @@
+"""
+Update note: Never use this module to test your emit functions.
+Use the file `auto_test.py` in the same directory instead.
+
+"""
+
 import ast
 from astpretty import pprint
 from yapypy.extended_python.parser import parse
