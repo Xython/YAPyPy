@@ -352,7 +352,7 @@ def py_emit(node: ast.Tuple, ctx: Context):
                         py_emit(elts[i], ctx)
                     ctx.bc.append(BUILD_TUPLE(now - last))
                     num += 1
-                if len(intervals) > 0: # starred item
+                if intervals:  # starred item
                     py_emit(elts[now].value, ctx)
                     num += 1
                 last = now + 1
@@ -435,7 +435,7 @@ def py_emit(node: ast.List, ctx: Context):
                         py_emit(elts[i], ctx)
                     ctx.bc.append(BUILD_LIST(now - last))
                     num += 1
-                if len(intervals) > 0: # starred item
+                if len(intervals) > 0:  # starred item
                     py_emit(elts[now].value, ctx)
                     num += 1
                 last = now + 1
