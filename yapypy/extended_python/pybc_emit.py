@@ -580,25 +580,6 @@ def py_emit(node: ast.ImportFrom, ctx: Context):
             ctx.store_name(as_name, lineno=lineno)
         ctx.bc.append(POP_TOP(lineno=lineno))
 
-@py_emit.case(ast.ListComp)
-def py_emit(node: ast.ListComp, ctx: Context):
-    loop_start = Label()
-    loop_done = Label()
-    loop_exit = Label()
-
-    append = ctx.bc.append
-    append(Instr("BUILD_LIST", lineno=node.lineno))
-    append(Instr("LOAD_FAST", '.0', lineno=node.lineno))
-    append(loop_start)
-    append(Instr("FOR_ITER", loop_done))
-    py_emit(node.generators[0].target)
-    py_emit(node.generators[0].iter)
-    py_emit(node.elt)
-    append(Instr("LIST_APPEND"))
-    append(Instr("JUMP_ABSOLUTE", loop_start))
-    append(loop_exit)
-
-
 
 @py_emit.case(ast.Compare)
 def py_emit(node: ast.Compare, ctx: Context):
@@ -644,16 +625,16 @@ def py_emit(node: ast.Compare, ctx: Context):
 
             py_emit(expr, ctx)
             if idx == last_idx_of_comparators:
-                ctx.bc.append(Instr("JUMP_FORWARD", label_out))
+                ctx.bc.append(Instr("JUMP_FORWARD", label_out, lineno=node.lineno))
             else:
-                ctx.bc.append(Instr("DUP_TOP"))
-                ctx.bc.append(Instr("ROT_THREE"))
+                ctx.bc.append(DUP_TOP(lineno=node.lineno))
+                ctx.bc.append(Instr("ROT_THREE", lineno=node.lineno))
                 ctx.bc.append(Instr("COMPARE_OP", op, lineno=node.lineno))
-                ctx.bc.append(Instr("JUMP_IF_FALSE_OR_POP", label_rot))
+                ctx.bc.append(Instr("JUMP_IF_FALSE_OR_POP", label_rot, lineno=node.lineno))
 
         ctx.bc.append(label_rot)
-        ctx.bc.append(Instr("ROT_TWO"))
-        ctx.bc.append(Instr("POP_TOP"))
+        ctx.bc.append(Instr("ROT_TWO", lineno=node.lineno))
+        ctx.bc.append(POP_TOP(lineno=node.lineno))
         ctx.bc.append(label_out)
     else:
         py_emit(node.comparators[0], ctx)
