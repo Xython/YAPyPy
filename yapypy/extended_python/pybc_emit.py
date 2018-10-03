@@ -994,8 +994,12 @@ def py_emit(node: ast.If, ctx: Context):
     >>> elif c:
     >>>     x = c
     >>> else:
+    >>>     a = 1
+    >>>     b = 2
+    >>>     c = 3
+    >>>     d = 4
     >>>     x = d
-    >>> assert x == d
+    >>> assert a, b, c, d, x == 1, 2, 3, 4, d
     """
 
     is_const = False
@@ -1025,21 +1029,25 @@ def py_emit(node: ast.If, ctx: Context):
 
     if is_const:
         if const_value:
-            py_emit(node.body[0], ctx)
+            for each in node.body:
+                py_emit(each, ctx)
         else:
-            py_emit(node.orelse[0], ctx)
+            for each in node.orelse:
+                py_emit(each, ctx)
     else:
         out_label = Label()
         else_lable = Label()
         py_emit(node.test, ctx)
         ctx.bc.append(Instr("POP_JUMP_IF_FALSE", else_lable, lineno=node.lineno))
-        py_emit(node.body[0], ctx)
+        for each in node.body:
+            py_emit(each, ctx)
         has_orelse = False
         if node.orelse:
             has_orelse = True
             ctx.bc.append(Instr("JUMP_FORWARD", out_label, lineno=node.lineno))
             ctx.bc.append(else_lable)
-            py_emit(node.orelse[0], ctx)
+            for each in node.orelse:
+                py_emit(each, ctx)
         if has_orelse:
             ctx.bc.append(out_label)
         else:
