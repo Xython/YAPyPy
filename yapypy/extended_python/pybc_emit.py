@@ -155,26 +155,36 @@ def py_emit(node: ast.FormattedValue, ctx: Context):
     if format_spec:
         py_emit(format_spec, ctx)
         flags += 4
-    ctx.bc.append(Instr("FORMAT_VALUE", flags))
+    ctx.bc.append(Instr("FORMAT_VALUE", flags, lineno=node.lineno))
 
 
 @py_emit.case(ast.Raise)
 def py_emit(node: ast.Raise, ctx: Context):
     """
-    test:
-    >>> try:
-    >>>     raise
-    >>> except RuntimeError as e:
+    prepare:
+    >>> def cache_exc(exc_func, handler_func):
+    >>>     try:
+    >>>         exc_func()
+    >>>     except Exception as e:
+    >>>         handler_func(e)
+    >>> def handler_empty (e):
     >>>     assert isinstance(e,RuntimeError)
-    >>> try:
-    >>>     raise TypeError('typeerror')
-    >>> except TypeError as e:
+    >>> def handler_typeerr (e):
     >>>     assert isinstance(e,TypeError)
-    >>> try:
-    >>>     raise ValueError('value') from NameError('name')
-    >>> except ValueError as e:
+    >>> def handler_cause (e):
     >>>     assert isinstance(e,ValueError)
     >>>     assert isinstance(e.__cause__,NameError)
+
+    test:
+    >>> def raise_empty ():
+    >>>     raise
+    >>> def raise_typeerr ():
+    >>>     raise TypeError('typeerror')
+    >>> def raise_cause ():
+    >>>     raise ValueError('value') from NameError('name')
+    >>> cache_exc (raise_empty, handler_empty)
+    >>> cache_exc (raise_typeerr, handler_typeerr)
+    >>> cache_exc (raise_cause, handler_cause)
     """
     exc = node.exc
     cause = node.cause
@@ -185,17 +195,25 @@ def py_emit(node: ast.Raise, ctx: Context):
     if cause:
         py_emit(cause, ctx)
         argc += 1
-    ctx.bc.append(Instr("RAISE_VARARGS", argc))
+    ctx.bc.append(Instr("RAISE_VARARGS", argc, lineno=node.lineno))
 
 
 @py_emit.case(ast.Assert)
 def py_emit(node: ast.Assert, ctx: Context):
     """
-    test:
-    >>> try:
-    >>>     assert 0,"num is zero"
-    >>> except AssertionError as e:
+    prepare:
+    >>> def cache_exc(exc_func, handler_func):
+    >>>     try:
+    >>>         exc_func()
+    >>>     except Exception as e:
+    >>>         handler_func(e)
+    >>> def handler_zero (e):
     >>>     assert isinstance(e, AssertionError)
+
+    test:
+    >>> def assert_zero ()
+    >>>     assert 0,"num is zero"
+    >>> cache_exc(assert_zero, handler_zero)
     """
     test = node.test
     msg = node.msg
@@ -207,9 +225,9 @@ def py_emit(node: ast.Assert, ctx: Context):
     ctx.bc.append(LOAD_GLOBAL("AssertionError", lineno=node.lineno))
     if msg:
         py_emit(msg, ctx)
-        ctx.bc.append(Instr("CALL_FUNCTION",
-                            1))  # AssertError(<arg>) , awalys 1
-    ctx.bc.append(Instr("RAISE_VARARGS", 1))  # <argc> awalys 1
+        ctx.bc.append(Instr("CALL_FUNCTION", 1,
+                            lineno=node.lineno))  # AssertError(<arg>) , awalys 1
+    ctx.bc.append(Instr("RAISE_VARARGS", 1, lineno=node.lineno))  # <argc> awalys 1
     ctx.bc.append(label)
 
 
