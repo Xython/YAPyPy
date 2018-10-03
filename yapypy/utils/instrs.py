@@ -73,8 +73,28 @@ def BUILD_SET(n: int, *, lineno=None):
     return Instr('BUILD_SET', n, lineno=lineno)
 
 
+def BUILD_SLICE(n: int, *, lineno=None):
+    return Instr('BUILD_SLICE', n, lineno=lineno)
+
+
+def STORE_SUBSCR(*, lineno=None):
+    return Instr('STORE_SUBSCR', lineno=lineno)
+
+
+def BINARY_SUBSCR(*, lineno=None):
+    return Instr('BINARY_SUBSCR', lineno=lineno)
+
+
+def DELETE_SUBSCR(*, lineno=None):
+    return Instr('DELETE_SUBSCR', lineno=lineno)
+
+
 def DUP_TOP(*, lineno=None):
     return Instr('DUP_TOP', lineno=lineno)
+
+
+def DUP_TOP_TWO(*, lineno=None):
+    return Instr('DUP_TOP_TWO', lineno=lineno)
 
 
 def POP_TOP(*, lineno=None):

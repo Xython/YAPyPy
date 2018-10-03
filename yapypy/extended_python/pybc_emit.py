@@ -1,6 +1,10 @@
 import ast
+import sys
 import typing
 from typing import NamedTuple
+
+from astpretty import pprint
+
 import yapypy.extended_python.extended_ast as ex_ast
 
 from yapypy.extended_python.symbol_analyzer import SymTable, Tag, to_tagged_ast
@@ -107,6 +111,7 @@ def py_compile(node, filename='<unknown>'):
         except SyntaxError as exc:
             exc.filename = filename
             raise exc
+
         return ctx.bc.to_code()
     else:
         tag = to_tagged_ast(node)
@@ -130,6 +135,110 @@ def py_emit(node: ast.Module, ctx: Context):
         py_emit(each, ctx)
     ctx.bc.append(Instr('LOAD_CONST', None))
     ctx.bc.append(Instr('RETURN_VALUE'))
+
+
+@py_emit.case(ast.Subscript)
+def py_emit(node: ast.Subscript, ctx: Context):
+    """
+
+
+    title: subscript
+    test:
+
+    >>> x = {1: 2, (3,  4): 10}
+    >>> assert x[1] == 2
+    >>> assert  x[3, 4] == 10
+    >>> del x[1]
+    >>> del x[3, 4]
+    >>> assert not x
+    >>> x = [1, 2, 3]
+    >>> x[:2] = [2, 3]
+    >>> assert x[:2] == [2, 3]
+    >>> x[:] = []
+    >>> assert not x
+    >>> x.append(1)
+    >>> x += [2, 3, 4]
+    >>> del x[:2]
+    >>> assert len(x) = 2
+    >>> x = {(slice(1, 2, None), slice(2, 3, -1)): 42}
+    >>> assert x[1:2, 2:3:-1] == 42
+
+    """
+    # pprint(node)
+    expr_context_ty = type(node.ctx)
+    py_emit(node.value, ctx)
+
+    if sys.version_info >= (3, 8):
+        # See https://github.com/python/cpython/pull/9605
+        py_emit(node.slice, ctx)
+    else:
+        py_emit(node.slice.value, ctx)
+
+    ctx.bc.append({
+        ast.Del: DELETE_SUBSCR,
+        ast.Store: STORE_SUBSCR,
+        ast.Load: BINARY_SUBSCR
+    }[expr_context_ty](lineno=node.lineno))
+
+
+@py_emit.case(ast.Slice)
+def py_emit(node: ast.Slice, ctx: Context):
+    slices = [node.lower, node.upper, node.step]
+    if not any(slices):
+        ctx.bc.append(LOAD_CONST(None))
+        ctx.bc.append(LOAD_CONST(None))
+        ctx.bc.append(BUILD_SLICE(2))
+
+        return
+
+    n = max([i for i, piece in enumerate(slices) if piece is not None]) + 1
+    for each in slices[:n]:
+        if not each:
+            ctx.bc.append(LOAD_CONST(None))
+        else:
+            py_emit(each, ctx)
+    ctx.bc.append(BUILD_SLICE(n))
+
+
+@py_emit.case(ast.AugAssign)
+def py_emit(node: ast.AugAssign, ctx: Context):
+    def lhs_to_rhs(instr: Instr):
+        opname = {
+            'STORE_SUBSCR': 'BINARY_SUBSCR',
+            'STORE_FAST': 'LOAD_FAST',
+            'STORE_DEREF': 'LOAD_DEREF',
+            'STORE_GLOBAL': 'LOAD_GLOBAL',
+            'STORE_NAME': 'LOAD_NAME',
+            'STORE_ATTR': 'LOAD_ATTR'
+        }[instr.name]
+        return Instr(opname, instr.arg, lineno=instr.lineno)
+
+    py_emit(node.target, ctx)
+
+    to_move: Instr = ctx.bc.pop()
+    if isinstance(node.target, (ast.Attribute, ast.Subscript)):
+        ctx.bc.append(DUP_TOP_TWO())
+    ctx.bc.append(lhs_to_rhs(to_move))
+    py_emit(node.value, ctx)
+    ctx.bc.append(
+        Instr(
+            {
+                ast.Add: "INPLACE_ADD",
+                ast.BitAnd: "INPLACE_AND",
+                ast.Sub: "INPLACE_SUBTRACT",
+                ast.Div: "INPLACE_TRUE_DIVIDE",
+                ast.FloorDiv: "INPLACE_FLOOR_DIVIDE",
+                ast.LShift: "INPLACE_LSHIFT",
+                ast.RShift: "INPLACE_RSHIFT",
+                ast.MatMult: "INPLACE_MATRIX_MULTIPLY",
+                ast.Pow: "INPLACE_POWER",
+                ast.BitOr: "INPLACE_OR",
+                ast.BitXor: "INPLACE_XOR",
+                ast.Mult: "INPLACE_MULTIPLY",
+                ast.Mod: "INPLACE_MODULO"
+            }[type(node.op)],
+            lineno=node.lineno))
+    ctx.bc.append(to_move)
 
 
 @py_emit.case(ast.Str)
@@ -931,11 +1040,8 @@ def py_emit(node: ast.BinOp, ctx: Context):
         ast.BitXor: "BINARY_XOR",
         ast.Mult: "BINARY_MULTIPLY",
         ast.Mod: "BINARY_MODULO"
-    }.get(type(node.op))
-    if inst:
-        ctx.bc.append(Instr(inst, lineno=node.lineno))
-    else:
-        raise TypeError
+    }[type(node.op)]
+    ctx.bc.append(Instr(inst, lineno=node.lineno))
 
 
 @py_emit.case(ast.BoolOp)

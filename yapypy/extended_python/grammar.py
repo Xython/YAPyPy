@@ -165,16 +165,16 @@ testlist_comp  ::= values<<(test|star_expr) ( comp=comp_for | (',' values<<(test
 
 # `ExtSlice` is ignored here. We don't need this optimization for this project.
 trailer        ::=  arglist=arglist | mark='[' subscr=subscriptlist ']' | mark='.' attr=NAMESTR
-                    -> (lambda value: Slice(value, subscr, **loc @ mark))        if subscr  is not None else\
-                       (lambda value: Call(value, *split_args_helper(arglist)))  if arglist is not None else\
+                    -> (lambda value: Subscript(value, subscr, Load(), **loc @ mark)) if subscr  is not None else\
+                       (lambda value: Call(value, *split_args_helper(arglist)))       if arglist is not None else\
                        (lambda value: Attribute(value, attr, Load(), **loc @ mark))                       
                        
 # `Index` will be deprecated in Python3.8. 
 # See https://github.com/python/cpython/pull/9605#issuecomment-425381990                        
 subscriptlist  ::= head=subscript (',' tail << subscript)* [',']
                    ->  Index(head if not tail else Tuple([head, *tail], Load()))                                      
-subscript3     ::= [lower=test] ':' [upper=test] [':' [step=test]] -> Slice(lower, upper, step)                        
-subscript      ::= it=(test | subscript3) -> it
+subscript3     ::= [lower=test] subscr=[':' [upper=test] [':' [step=test]]] -> Slice(lower, upper, step) if subscr else lower      
+subscript      ::= it=(subscript3 | test) -> it
 exprlist       ::= seq << (expr|star_expr) (',' seq << (expr|star_expr))* [','] -> seq
 testlist       ::= seq << test (',' seq << test)* [force_tuple=','] -> Tuple(seq, Load()) if force_tuple or len(seq) > 1 else seq[0]
 
