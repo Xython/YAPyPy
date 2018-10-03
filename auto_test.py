@@ -1,5 +1,7 @@
 import ast
 import pytest
+import unittest
+from astpretty import pprint
 from yapypy.extended_python.pybc_emit import py_compile
 from yapypy.extended_python.parser import parse
 from Redy.Tools.PathLib import Path
@@ -7,7 +9,6 @@ from os.path import splitext
 from textwrap import dedent
 from bytecode import Bytecode
 import rbnf.zero as ze
-import unittest
 ze_exp = ze.compile(
     r"""
 [python] import rbnf.std.common.[recover_codes]
@@ -56,6 +57,16 @@ class DocStringsCollector(ast.NodeVisitor):
     visit_FunctionDef = _visit_fn
 
 
+class FixLineno(ast.NodeVisitor):
+    def __init__(self, first_lineno: int):
+        self.first_lineno = first_lineno
+
+    def visit(self, node):
+        if hasattr(node, 'lineno'):
+            node.lineno += self.first_lineno
+        self.generic_visit(node)
+
+
 class Test(unittest.TestCase):
     @pytest.fixture(autouse=True)
     def test_all(self):
@@ -80,8 +91,12 @@ class Test(unittest.TestCase):
                 context = {'self': self}
                 prepare_code = dedent_all(prepare_code)
                 test_code = dedent_all(test_code)
+                fixer = FixLineno(lineno)
                 try:
-                    code = compile(prepare_code, filename, "exec")
+                    node = ast.parse(prepare_code, filename, mode='exec')
+
+                    fixer.visit(node)
+                    code = compile(node, filename, "exec")
                 except SyntaxError as exc:
                     exc.lineno = lineno
                     exc.filename = filename
@@ -91,8 +106,13 @@ class Test(unittest.TestCase):
                 bc.first_lineno = lineno
                 exec(bc.to_code(), context)
 
+                # not correct but as a workaround
+                fixer = FixLineno(lineno + test_code.count('\n'))
                 try:
-                    code = py_compile(parse(test_code).result)
+                    node = parse(test_code).result
+                    # pprint(node)
+                    fixer.visit(node)
+                    code = py_compile(node)
                 except SyntaxError as exc:
                     exc.lineno = lineno
                     exc.filename = filename

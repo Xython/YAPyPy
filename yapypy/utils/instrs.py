@@ -58,6 +58,10 @@ def BUILD_TUPLE(n: int, *, lineno=None):
     return Instr('BUILD_TUPLE', n, lineno=lineno)
 
 
+def BUILD_TUPLE_UNPACK(n: int, *, lineno=None):
+    return Instr('BUILD_TUPLE_UNPACK', n, lineno=lineno)
+
+
 def DUP_TOP(*, lineno=None):
     return Instr('DUP_TOP', lineno=lineno)
 
