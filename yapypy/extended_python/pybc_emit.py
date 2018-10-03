@@ -1,5 +1,5 @@
 import ast
-from astpretty import pprint
+import typing
 from typing import NamedTuple
 import yapypy.extended_python.extended_ast as ex_ast
 
@@ -98,11 +98,15 @@ class Context(INamedList, metaclass=trait(as_namedlist)):
             parent.bc.append(Instr('BUILD_TUPLE', len(freevars)))
 
 
-def py_compile(node: Tag):
+def py_compile(node, filename='<unknown>'):
     if isinstance(node, Tag):
         ctx = Context(Bytecode(), IndexedAnalyzedSymTable.from_raw(node.tag),
                       None)
-        py_emit(node.it, ctx)
+        try:
+            py_emit(node.it, ctx)
+        except SyntaxError as exc:
+            exc.filename = filename
+            raise exc
         return ctx.bc.to_code()
     else:
         tag = to_tagged_ast(node)
@@ -270,8 +274,8 @@ def py_emit(node: ast.Set, ctx: Context):
     """
     title: set
     prepare:
-    >>> 
-    
+    >>>
+
     test:
     >>> {1,2,3,4}
     >>> {233,'233'}
@@ -456,20 +460,24 @@ def py_emit(node: ast.List, ctx: Context):
         ctx.bc.append(BUILD_LIST(len(node.elts), lineno=node.lineno))
 
 
-@py_emit.case(ast.FunctionDef)
-def py_emit(node: ast.FunctionDef, new_ctx: Context):
+def emit_function(node: typing.Union[ast.AsyncFunctionDef, ast.FunctionDef],
+                  new_ctx: Context, is_async: bool):
     """
-    https://docs.python.org/3/library/dis.html#opcode-MAKE_FUNCTION
-    MAKE_FUNCTION flags:
-    0x01 a tuple of default values for positional-only and positional-or-keyword parameters in positional order
-    0x02 a dictionary of keyword-only parameters’ default values
-    0x04 an annotation dictionary
-    0x08 a tuple containing cells for free variables, making a closure
-    the code associated with the function (at TOS1)
-    the qualified name of the function (at TOS)
+        https://docs.python.org/3/library/dis.html#opcode-MAKE_FUNCTION
+        MAKE_FUNCTION flags:
+        0x01 a tuple of default values for positional-only and positional-or-keyword parameters in positional order
+        0x02 a dictionary of keyword-only parameters’ default values
+        0x04 an annotation dictionary
+        0x08 a tuple containing cells for free variables, making a closure
+        the code associated with the function (at TOS1)
+        the qualified name of the function (at TOS)
 
-    """
+        """
+
     parent_ctx: Context = new_ctx.parent
+    if is_async:
+        new_ctx.bc.flags |= CompilerFlags.COROUTINE
+
     for each in node.body:
         py_emit(each, new_ctx)
 
@@ -556,6 +564,16 @@ def py_emit(node: ast.FunctionDef, new_ctx: Context):
         Instr("MAKE_FUNCTION", make_function_flags, lineno=node.lineno))
 
     parent_ctx.store_name(node.name, lineno=node.lineno)
+
+
+@py_emit.case(ast.FunctionDef)
+def py_emit(node: ast.FunctionDef, new_ctx: Context):
+    emit_function(node, new_ctx, is_async=False)
+
+
+@py_emit.case(ast.AsyncFunctionDef)
+def py_emit(node: ast.AsyncFunctionDef, new_ctx: Context):
+    emit_function(node, new_ctx, is_async=True)
 
 
 @py_emit.case(ex_ast.ExDict)
@@ -771,10 +789,42 @@ def py_emit(node: ast.YieldFrom, ctx: Context):
     >>>   yield from 1,
     >>> assert next(f()) == 1
     """
+    if ctx.bc.flags | CompilerFlags.ASYNC_GENERATOR:
+        exc = SyntaxError()
+        exc.lineno = node.lineno
+        exc.msg = 'yield from in async function.'
+        raise exc
     ctx.bc.flags |= CompilerFlags.GENERATOR
     append = ctx.bc.append
     py_emit(node.value, ctx)
     append(Instr('GET_YIELD_FROM_ITER', lineno=node.lineno))
+    append(Instr('LOAD_CONST', None, lineno=node.lineno))
+    append(Instr("YIELD_FROM", lineno=node.lineno))
+
+
+@py_emit.case(ast.Await)
+def py_emit(node: ast.Await, ctx: Context):
+    """
+        title: await
+        test:
+        >>> from asyncio import sleep, run_coroutine_threadsafe, get_event_loop
+        >>> from time import sleep
+        >>> async def f():
+        >>>   await sleep(0.2)
+        >>>   return 42
+        >>> future = run_coroutine_threadsafe(f(), get_event_loop())
+        >>> sleep(0.2)
+        >>> assert future.result() ==  42
+        """
+    if ctx.bc.flags | CompilerFlags.ASYNC_GENERATOR:
+        exc = SyntaxError()
+        exc.lineno = node.lineno
+        exc.msg = 'yield from in async function.'
+        raise exc
+    ctx.bc.flags |= CompilerFlags.GENERATOR
+    append = ctx.bc.append
+    py_emit(node.value, ctx)
+    append(Instr('GET_AWAITABLE', lineno=node.lineno))
     append(Instr('LOAD_CONST', None, lineno=node.lineno))
     append(Instr("YIELD_FROM", lineno=node.lineno))
 
@@ -907,7 +957,6 @@ def py_emit(node: ast.BoolOp, ctx: Context):
 
 @py_emit.case(ast.Num)
 def py_emit(node: ast.Num, ctx: Context):
-
     ctx.bc.append(Instr("LOAD_CONST", node.n, lineno=node.lineno))
 
 
@@ -952,7 +1001,6 @@ def py_emit(node: ast.ImportFrom, ctx: Context):
 
     else:
         for name in node.names:
-
             ctx.bc.append(Instr("IMPORT_FROM", name.name, lineno=lineno))
             as_name = name.name or name.asname
             ctx.store_name(as_name, lineno=lineno)
