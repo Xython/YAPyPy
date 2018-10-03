@@ -288,6 +288,22 @@ def py_emit(node: ast.Set, ctx: Context):
     ctx.bc.append(BUILD_SET(n, lineno=node.lineno))
 
 
+@py_emit.case(ast.ListComp)
+def py_emit(node: ast.ListComp, ctx: Context):
+    """
+    title: ListComp
+    prepare:
+    >>> 
+
+    test:
+    >>> 
+    """
+    elt = node.elt
+    generators = node.generators
+    for generator in generators:
+        pass
+
+
 @py_emit.case(ast.Delete)
 def py_emit(node: ast.Delete, ctx: Context):
     for each in node.targets:
