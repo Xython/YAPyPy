@@ -636,21 +636,20 @@ def py_emit(node: ast.Compare, ctx: Context):
         last_idx_of_comparators = len_of_comparators - 1
         label_rot = Label()
         label_out = Label()
+
         for idx in range(len_of_comparators):
             op_type = type(node.ops[idx])
             op = ops.get(op_type)
             expr = node.comparators[idx]
-            if expr:
-                py_emit(expr, ctx)
-                if idx == last_idx_of_comparators:
-                    ctx.bc.append(Instr("JUMP_FORWARD", label_out))
-                else:
-                    ctx.bc.append(Instr("DUP_TOP"))
-                    ctx.bc.append(Instr("ROT_THREE"))
-                    ctx.bc.append(Instr("COMPARE_OP", op, lineno=node.lineno))
-                    ctx.bc.append(Instr("JUMP_IF_FALSE_OR_POP", label_rot))
+
+            py_emit(expr, ctx)
+            if idx == last_idx_of_comparators:
+                ctx.bc.append(Instr("JUMP_FORWARD", label_out))
             else:
-                raise TypeError("type mismatched")
+                ctx.bc.append(Instr("DUP_TOP"))
+                ctx.bc.append(Instr("ROT_THREE"))
+                ctx.bc.append(Instr("COMPARE_OP", op, lineno=node.lineno))
+                ctx.bc.append(Instr("JUMP_IF_FALSE_OR_POP", label_rot))
 
         ctx.bc.append(label_rot)
         ctx.bc.append(Instr("ROT_TWO"))
@@ -658,8 +657,6 @@ def py_emit(node: ast.Compare, ctx: Context):
         ctx.bc.append(label_out)
     else:
         py_emit(node.comparators[0], ctx)
-        op_type = type(node.ops[0])
-        if op_type:
-            ctx.bc.append(Instr("COMPARE_OP", ops.get(op_type), lineno=node.lineno))
-        else:
-            raise TypeError("type mismatched")
+        op_type= type(node.ops[0])
+        op = ops.get(op_type)
+        ctx.bc.append(Instr("COMPARE_OP", op, lineno=node.lineno))
