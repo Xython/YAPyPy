@@ -161,6 +161,7 @@ def py_emit(node: ast.FormattedValue, ctx: Context):
 @py_emit.case(ast.Raise)
 def py_emit(node: ast.Raise, ctx: Context):
     """
+    title: raise
     prepare:
     >>> def cache_exc(exc_func, handler_func):
     >>>     try:
@@ -232,6 +233,25 @@ def py_emit(node: ast.Assert, ctx: Context):
     ctx.bc.append(Instr("RAISE_VARARGS", 1,
                         lineno=node.lineno))  # <argc> awalys 1
     ctx.bc.append(label)
+
+
+@py_emit.case(ast.Set)
+def py_emit(node: ast.Set, ctx: Context):
+    """
+    title: set
+    prepare:
+    >>> 
+    
+    test:
+    >>> {1,2,3,4}
+    >>> {233,'233',{1}}
+    """
+    elts = node.elts
+    n = 0
+    for elt in elts:
+        py_emit(elt, ctx)
+        n += 1
+    ctx.bc.append (Instr("BUILD_SET",n,lineno=node.lineno))
 
 
 @py_emit.case(ast.Delete)
