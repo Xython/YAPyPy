@@ -281,7 +281,7 @@ def py_emit(node: ast.Set, ctx: Context):
     for elt in elts:
         py_emit(elt, ctx)
         n += 1
-    ctx.bc.append (Instr("BUILD_SET",n,lineno=node.lineno))
+    ctx.bc.append(BUILD_SET(n, lineno=node.lineno))
 
 
 @py_emit.case(ast.Delete)
@@ -304,7 +304,8 @@ def py_emit(node: ast.Tuple, ctx: Context):
     >>> assert x == 2  and  y == 3 and z == 5
     >>> x, *y, z, t = 2, 3, 5, 5
     >>> assert t == 5
-    >>> print((t, *(1, 2, 3)))
+    >>> print( (1, *(2, 3, 4), 5, *(6, 7), 8) )
+    >>> assert  (1, *(2, 3, 4), 5, *(6, 7), 8) == (1, 2, 3, 4, 5, 6, 7, 8)
     >>> del (x, y, z, t)
     """
     expr_ctx = type(node.ctx)
@@ -341,7 +342,7 @@ def py_emit(node: ast.Tuple, ctx: Context):
             for i in range(star_idx + 1, n):
                 py_emit(elts[i], ctx)
         else:
-            intervals = [*star_indices, n - 1][::-1]
+            intervals = [*star_indices, n][::-1]
             last = 0
             num = 0
             while intervals:
@@ -351,8 +352,9 @@ def py_emit(node: ast.Tuple, ctx: Context):
                         py_emit(elts[i], ctx)
                     ctx.bc.append(BUILD_TUPLE(now - last))
                     num += 1
-                py_emit(elts[now].value, ctx)
-                num += 1
+                if len(intervals) > 0: # starred item
+                    py_emit(elts[now].value, ctx)
+                    num += 1
                 last = now + 1
             ctx.bc.append(BUILD_TUPLE_UNPACK(num))
         return
@@ -369,6 +371,89 @@ def py_emit(node: ast.Tuple, ctx: Context):
             py_emit(each, ctx)
 
         ctx.bc.append(BUILD_TUPLE(len(node.elts), lineno=node.lineno))
+
+
+@py_emit.case(ast.List)
+def py_emit(node: ast.List, ctx: Context):
+    """
+    title: list
+    test:
+    >>> x = 1
+    >>> assert [x, 2, 3] == [1, 2, 3]
+    >>> [x, y] = [2, 3]
+    >>> assert  x== 2 and y == 3
+    >>> [x, [*y, z]]  = [2, [3, 5]]
+    >>> y, = y
+    >>> assert x == 2 and y == 3 and z == 5
+    >>> [x, *y, z, t] = [2, 3, 5, 5]
+    >>> assert t == 5
+    >>> print( [1, *[2, 3, 4], 5, *[6, 7], 8] )
+    >>> assert  [1, *[2, 3, 4], 5, *[6, 7], 8] == [1, 2, 3, 4, 5, 6, 7, 8]
+    >>> del [x, y, z, t]
+    """
+    expr_ctx = type(node.ctx)
+
+    star_indices = [
+        idx for idx, each in enumerate(node.elts)
+        if isinstance(each, ast.Starred)
+    ]
+    if star_indices:
+        elts = node.elts
+        n = len(elts)
+        if expr_ctx is ast.Del:
+            exc = SyntaxError()
+            exc.msg = "try to delete starred expression."
+            exc.lineno = node.lineno
+            raise exc
+
+        if expr_ctx is ast.Store:
+            if len(star_indices) is not 1:
+                exc = SyntaxError()
+                exc.lineno = node.lineno
+                exc.msg = f'{len(star_indices)} starred expressions in assignment'
+                raise exc
+            star_idx = star_indices[0]
+            n_right = n - star_idx - 1
+            n_left = star_idx
+            unpack_arg = n_left + 256 * n_right
+            ctx.bc.append(UNPACK_EX(unpack_arg, lineno=node.lineno))
+
+            for i in range(0, star_idx):
+                py_emit(elts[i], ctx)
+            starred: ast.Starred = elts[star_idx]
+            py_emit(starred.value, ctx)
+            for i in range(star_idx + 1, n):
+                py_emit(elts[i], ctx)
+        else:
+            intervals = [*star_indices, n][::-1]
+            last = 0
+            num = 0
+            while intervals:
+                now = intervals.pop()
+                if now > last:
+                    for i in range(last, now):
+                        py_emit(elts[i], ctx)
+                    ctx.bc.append(BUILD_LIST(now - last))
+                    num += 1
+                if len(intervals) > 0: # starred item
+                    py_emit(elts[now].value, ctx)
+                    num += 1
+                last = now + 1
+            ctx.bc.append(BUILD_LIST_UNPACK(num))
+        return
+
+    if expr_ctx is ast.Store:
+        ctx.bc.append(UNPACK_SEQUENCE(len(node.elts), lineno=node.lineno))
+        for each in node.elts:
+            py_emit(each, ctx)
+    elif expr_ctx is ast.Del:
+        for each in node.elts:
+            py_emit(each, ctx)
+    else:
+        for each in node.elts:
+            py_emit(each, ctx)
+
+        ctx.bc.append(BUILD_LIST(len(node.elts), lineno=node.lineno))
 
 
 @py_emit.case(ast.FunctionDef)

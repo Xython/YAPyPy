@@ -54,12 +54,23 @@ def UNPACK_SEQUENCE(n: int, *, lineno=None):
 
 
 def BUILD_TUPLE(n: int, *, lineno=None):
-
     return Instr('BUILD_TUPLE', n, lineno=lineno)
 
 
 def BUILD_TUPLE_UNPACK(n: int, *, lineno=None):
     return Instr('BUILD_TUPLE_UNPACK', n, lineno=lineno)
+
+
+def BUILD_LIST(n: int, *, lineno=None):
+    return Instr('BUILD_LIST', n, lineno=lineno)
+
+
+def BUILD_LIST_UNPACK(n: int, *, lineno=None):
+    return Instr('BUILD_LIST_UNPACK', n, lineno=lineno)
+
+
+def BUILD_SET(n: int, *, lineno=None):
+    return Instr('BUILD_SET', n, lineno=lineno)
 
 
 def DUP_TOP(*, lineno=None):
