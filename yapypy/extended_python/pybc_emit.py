@@ -1,9 +1,11 @@
 import ast
 from typing import NamedTuple
 import yapypy.extended_python.extended_ast as ex_ast
-from yapypy.extended_python.symbol_analyzer import SymTable, Tag
+
+from yapypy.extended_python.symbol_analyzer import SymTable, Tag, to_tagged_ast
 from yapypy.utils.namedlist import INamedList, as_namedlist, trait
 from yapypy.utils.instrs import *
+
 from Redy.Magic.Pattern import Pattern
 from bytecode import *
 from bytecode.concrete import FreeVar, CellVar
@@ -96,9 +98,14 @@ class Context(INamedList, metaclass=trait(as_namedlist)):
 
 
 def py_compile(node: Tag):
-    ctx = Context(Bytecode(), IndexedAnalyzedSymTable.from_raw(node.tag), None)
-    py_emit(node.it, ctx)
-    return ctx.bc.to_code()
+    if isinstance(node, Tag):
+        ctx = Context(Bytecode(), IndexedAnalyzedSymTable.from_raw(node.tag),
+                      None)
+        py_emit(node.it, ctx)
+        return ctx.bc.to_code()
+    else:
+        tag = to_tagged_ast(node)
+        return py_compile(tag)
 
 
 @Pattern
@@ -448,6 +455,17 @@ def py_emit(node: ast.YieldFrom, ctx: Context):
 
 @py_emit.case(ast.Attribute)
 def py_emit(node: ast.Attribute, ctx: Context):
+    """
+    prepare:
+    >>> class S: pass
+    >>> s = S()
+
+    test:
+    >>> s.x = 1
+    >>> assert s.x == 1
+    >>> del s.x
+    >>> assert not hasattr(s, 'x')
+    """
     py_emit(node.value, ctx)
 
     ctx.bc.append({
