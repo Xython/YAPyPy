@@ -1,4 +1,6 @@
 import ast
+import dis
+
 import pytest
 import unittest
 from astpretty import pprint

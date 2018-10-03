@@ -140,8 +140,6 @@ def py_emit(node: ast.Module, ctx: Context):
 @py_emit.case(ast.Subscript)
 def py_emit(node: ast.Subscript, ctx: Context):
     """
-
-
     title: subscript
     test:
 
@@ -160,11 +158,14 @@ def py_emit(node: ast.Subscript, ctx: Context):
     >>> x += [2, 3, 4]
     >>> del x[:2]
     >>> assert len(x) = 2
-    >>> x = {(slice(1, 2, None), slice(2, 3, -1)): 42}
-    >>> assert x[1:2, 2:3:-1] == 42
+    >>> class S:
+    >>>     def __getitem__(self, i):
+    >>>        if i == (slice(1, 2, None), slice(2, 3, -1)):
+    >>>             return 42
+    >>>        raise ValueError
+    >>> assert S()[1:2, 2:3:-1] == 42
 
     """
-    # pprint(node)
     expr_context_ty = type(node.ctx)
     py_emit(node.value, ctx)
 
@@ -181,8 +182,39 @@ def py_emit(node: ast.Subscript, ctx: Context):
     }[expr_context_ty](lineno=node.lineno))
 
 
+@py_emit.case(ast.NameConstant)
+def py_emit(node: ast.NameConstant, ctx: Context):
+    """
+    title: named constant
+    test:
+    >>> x = True
+    >>> x = None
+    >>> x = False
+    """
+    ctx.bc.append(LOAD_CONST(node.value, lineno=node.lineno))
+
+
 @py_emit.case(ast.Slice)
 def py_emit(node: ast.Slice, ctx: Context):
+    """
+    see more test cases for Subscript
+    title: slice
+    test:
+    >>> x = [1, 2, 3]
+    >>> assert x[::-1] == [3, 2, 1]
+    >>> assert x[::-2] == [3, 1]
+    >>> assert x[:1:-1] ==  [3]
+    >>> assert x[:0:-1] == [3, 2]
+    >>> assert x[1:2:1] == [2]
+    >>> class S:
+    >>>    def __getitem__(self, item):
+    >>>         if item == (1, slice(2, 3, None)): return 1
+    >>>         elif item == (slice(None, 3, 2), 2): return 2
+    >>> assert x[1, 2:3] == 1
+    >>> assert x[:3:2, 2] == 2
+
+
+    """
     slices = [node.lower, node.upper, node.step]
     if not any(slices):
         ctx.bc.append(LOAD_CONST(None))
@@ -202,6 +234,25 @@ def py_emit(node: ast.Slice, ctx: Context):
 
 @py_emit.case(ast.AugAssign)
 def py_emit(node: ast.AugAssign, ctx: Context):
+    """
+    title: aug_assign
+    test:
+    >>> x = 1
+    >>> x += 1
+    >>> assert  x == 2
+    >>> x = [1, 2, 3]
+    >>> x[1 + 1] += 2
+    >>> assert x[1 + 1]== 5
+    >>> class S: pass
+    >>> s = S()
+    >>> s.x = 1
+    >>> s.x += 1
+    >>> assert s.x == 2
+    >>> def f(a={}): return a
+    >>> f()['a'] = 1
+    >>> f()['a'] *= 2
+    >>> assert f()['a'] == 2
+    """
     def lhs_to_rhs(instr: Instr):
         opname = {
             'STORE_SUBSCR': 'BINARY_SUBSCR',
@@ -214,10 +265,11 @@ def py_emit(node: ast.AugAssign, ctx: Context):
         return Instr(opname, instr.arg, lineno=instr.lineno)
 
     py_emit(node.target, ctx)
-
     to_move: Instr = ctx.bc.pop()
-    if isinstance(node.target, (ast.Attribute, ast.Subscript)):
+    is_composed = isinstance(node.target, (ast.Attribute, ast.Subscript))
+    if is_composed:
         ctx.bc.append(DUP_TOP_TWO())
+
     ctx.bc.append(lhs_to_rhs(to_move))
     py_emit(node.value, ctx)
     ctx.bc.append(
@@ -238,6 +290,8 @@ def py_emit(node: ast.AugAssign, ctx: Context):
                 ast.Mod: "INPLACE_MODULO"
             }[type(node.op)],
             lineno=node.lineno))
+    if is_composed:
+        ctx.bc.append(ROT_THREE(lineno=node.lineno))
     ctx.bc.append(to_move)
 
 
@@ -1242,7 +1296,10 @@ def py_emit(node: ast.If, ctx: Context):
     """
 
     is_const = False
-    kinds = [ast.Constant, ast.Num, ast.Str, ast.Bytes, ast.Ellipsis, ast.NameConstant]
+    kinds = [
+        ast.Constant, ast.Num, ast.Str, ast.Bytes, ast.Ellipsis,
+        ast.NameConstant
+    ]
     is_const = any([isinstance(node.test, kind) for kind in kinds])
     if isinstance(node.test, ast.Name):
         if node.test.id == "__debug__":
@@ -1277,7 +1334,8 @@ def py_emit(node: ast.If, ctx: Context):
         out_label = Label()
         else_lable = Label()
         py_emit(node.test, ctx)
-        ctx.bc.append(Instr("POP_JUMP_IF_FALSE", else_lable, lineno=node.lineno))
+        ctx.bc.append(
+            Instr("POP_JUMP_IF_FALSE", else_lable, lineno=node.lineno))
         for each in node.body:
             py_emit(each, ctx)
         has_orelse = False

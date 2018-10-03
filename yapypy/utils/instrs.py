@@ -89,6 +89,10 @@ def DELETE_SUBSCR(*, lineno=None):
     return Instr('DELETE_SUBSCR', lineno=lineno)
 
 
+def ROT_THREE(*, lineno=None):
+    return Instr('ROT_THREE', lineno=lineno)
+
+
 def DUP_TOP(*, lineno=None):
     return Instr('DUP_TOP', lineno=lineno)
 

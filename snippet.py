@@ -33,11 +33,11 @@ res: Tag = to_tagged_ast(stmt)
 print(res.tag.show_resolution())
 
 stmt = parse("""
-x = [1]
-x[:2] = []
-print(x)
+
+x = [0]
+x[0 + 0] += 2
+print(x)    
 """).result
-# pprint(stmt)
 
 exec(py_compile(stmt))
 

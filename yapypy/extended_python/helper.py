@@ -298,8 +298,7 @@ def check_call_args(loc, seq: t.List[ast.expr]):
     return seq
 
 
-def atom_rewrite(loc, name, number, strs, ellipsis, namedc, dict, is_dict,
-                 is_gen, is_list, comp, yield_expr):
+def atom_rewrite(loc, name, number, strs, namedc, ellipsis,  dict, is_dict, is_gen, is_list, comp, yield_expr):
     if name:
         return ast.Name(name.value, ast.Load(), **loc @ name)
 
