@@ -13,14 +13,15 @@ ze_exp = ze.compile(
 [python] import rbnf.std.common.[recover_codes]
 Space   := ' '
 NL      := R'\n'
-Keyword := 'test:' 'prepare:' '>>>' 
+Keyword := 'test:' 'prepare:' '>>>' 'title:' 
 NoSwitch ::= ~Keyword
-Doctest ::= [(~'prepare:')* 'prepare:' (NoSwitch* '>>>' prepare_lines<<((~NL)+) NL+)*]
+Doctest ::= [(~'title:')* 'title:' name=(~NL)+]
+            [(~'prepare:')* 'prepare:' (NoSwitch* '>>>' prepare_lines<<((~NL)+) NL+)*]
             (~'test:')* 'test:' (NoSwitch* '>>>' test_lines<<((~NL)+))* 
             ->
               prepare_lines = recover_codes(sum(prepare_lines, [])) if prepare_lines else ''
               test          = recover_codes(sum(test_lines, []))    if test_lines else ''
-              return prepare_lines, test
+              return recover_codes(name) if name else None, prepare_lines, test
                 
 lexer   := R'.'
 TestCase ::= [it=Doctest] _* -> it or None
@@ -73,7 +74,7 @@ class Test(unittest.TestCase):
 
             mod_name, _ = splitext(each.relative())
 
-            for idx, [fn_name, lineno, prepare_code,
+            for idx, [fn_name, lineno, title, prepare_code,
                       test_code] in enumerate(collector.docs):
 
                 context = {'self': self}
@@ -101,7 +102,7 @@ class Test(unittest.TestCase):
                 bc.first_lineno = lineno
                 exec(bc.to_code(), context)
 
-                print(f'{mod_name}.{fn_name} passed test')
+                print(f'{mod_name}.{title or fn_name} passed test')
 
 
 if __name__ == '__main__':

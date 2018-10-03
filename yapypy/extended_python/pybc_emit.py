@@ -201,6 +201,7 @@ def py_emit(node: ast.Raise, ctx: Context):
 @py_emit.case(ast.Assert)
 def py_emit(node: ast.Assert, ctx: Context):
     """
+    title: assert
     prepare:
     >>> def cache_exc(exc_func, handler_func):
     >>>     try:
@@ -225,9 +226,11 @@ def py_emit(node: ast.Assert, ctx: Context):
     ctx.bc.append(LOAD_GLOBAL("AssertionError", lineno=node.lineno))
     if msg:
         py_emit(msg, ctx)
-        ctx.bc.append(Instr("CALL_FUNCTION", 1,
-                            lineno=node.lineno))  # AssertError(<arg>) , awalys 1
-    ctx.bc.append(Instr("RAISE_VARARGS", 1, lineno=node.lineno))  # <argc> awalys 1
+        ctx.bc.append(
+            Instr("CALL_FUNCTION", 1,
+                  lineno=node.lineno))  # AssertError(<arg>) , awalys 1
+    ctx.bc.append(Instr("RAISE_VARARGS", 1,
+                        lineno=node.lineno))  # <argc> awalys 1
     ctx.bc.append(label)
 
 
@@ -363,7 +366,7 @@ def py_emit(node: ast.FunctionDef, new_ctx: Context):
 
     new_ctx.bc.append(Instr('LOAD_CONST', None))
     new_ctx.bc.append(Instr('RETURN_VALUE'))
-    print(new_ctx.bc)
+
     inner_code = new_ctx.bc.to_code()
 
     parent_ctx.bc.append(Instr('LOAD_CONST', inner_code, lineno=node.lineno))
@@ -558,6 +561,7 @@ def py_emit(node: ast.YieldFrom, ctx: Context):
 @py_emit.case(ast.Attribute)
 def py_emit(node: ast.Attribute, ctx: Context):
     """
+    title: attribute
     prepare:
     >>> class S: pass
     >>> s = S()
