@@ -1215,18 +1215,16 @@ def py_emit(node: ast.Compare, ctx: Context):
 
             py_emit(expr, ctx)
             if idx == last_idx_of_comparators:
-                ctx.bc.append(
-                    Instr("JUMP_FORWARD", label_out, lineno=node.lineno))
+                ctx.bc.append(Instr("COMPARE_OP", op, lineno=node.lineno))
+                ctx.bc.append(JUMP_FORWARD(label_out, lineno=node.lineno))
             else:
                 ctx.bc.append(DUP_TOP(lineno=node.lineno))
-                ctx.bc.append(Instr("ROT_THREE", lineno=node.lineno))
+                ctx.bc.append(ROT_THREE(lineno=node.lineno))
                 ctx.bc.append(Instr("COMPARE_OP", op, lineno=node.lineno))
-                ctx.bc.append(
-                    Instr(
-                        "JUMP_IF_FALSE_OR_POP", label_rot, lineno=node.lineno))
+                ctx.bc.append(JUMP_IF_FALSE_OR_POP(label_rot, lineno=node.lineno))
 
         ctx.bc.append(label_rot)
-        ctx.bc.append(Instr("ROT_TWO", lineno=node.lineno))
+        ctx.bc.append(ROT_THREE(lineno=node.lineno))
         ctx.bc.append(POP_TOP(lineno=node.lineno))
         ctx.bc.append(label_out)
     else:

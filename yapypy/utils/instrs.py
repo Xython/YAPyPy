@@ -89,6 +89,10 @@ def DELETE_SUBSCR(*, lineno=None):
     return Instr('DELETE_SUBSCR', lineno=lineno)
 
 
+def ROT_TWO(*, lineno=None):
+    return Instr('ROT_TWO', lineno=lineno)
+
+
 def ROT_THREE(*, lineno=None):
     return Instr('ROT_THREE', lineno=lineno)
 
@@ -111,6 +115,14 @@ def GET_ITER(*, lineno=None):
 
 def POP_JUMP_IF_FALSE(label: Label, *, lineno=None):
     return Instr("POP_JUMP_IF_FALSE", label, lineno=lineno)
+
+
+def JUMP_FORWARD(label: Label, *, lineno=None):
+    return Instr("JUMP_FORWARD", label, lineno=lineno)
+
+
+def JUMP_IF_FALSE_OR_POP(label: Label, *, lineno=None):
+    return Instr("JUMP_IF_FALSE_OR_POP", label, lineno=lineno)
 
 
 def DUP_TOP(*, lineno=None):
