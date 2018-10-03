@@ -10,32 +10,6 @@ from yapypy.extended_python.pybc_emit import py_compile
 def test_formattedvalue():
     code = r"""
 
-from datetime import datetime
-p = print
-A = "A"
-
-p (f'{A}')
-p (f'{A!r}')
-p (f'{A!s}')
-p (f'{A!a}')
-
-p (f'{A!r:>30}')
-p (f'{A!r:<30}')
-
-p (f'{A!r:^30}')
-p (f'{A!r:*^20}')
-
-p (f'{3.14:+f}')
-p (f'{3.14:f}')
-p (f'{3.14:-f}')
-a = 233
-p (f'{a:d} {a:x} {a:o} {a:b}')
-p (f'{a:d} {a:#x} {a:#o} {a:#b}')
-
-p (f'{123456789:,}')
-p (f'{19/22:.2%}')
-
-p (f'{datetime.now():%Y-%m-%d %H:%M:%S}' ) 
 
 """
 

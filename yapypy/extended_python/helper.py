@@ -1,4 +1,5 @@
 from rbnf.core.Tokenizer import Tokenizer
+import yapypy.extended_python.extended_ast as ex_ast
 import ast
 import typing as t
 
@@ -77,6 +78,7 @@ def raise_exp(e):
 
 def str_maker(*strs: Tokenizer):
     head = strs[0]
+
     return ast.JoinedStr(**(loc @ head), values=list(map(_parse_expr, strs)))
 
 
@@ -294,3 +296,36 @@ def check_call_args(loc, seq: t.List[ast.expr]):
             error.msg = 'non-keyword argument follows keyword argument'
             raise error
     return seq
+
+
+def atom_rewrite(loc, name, number, strs, ellipsis, namedc, dict, is_dict,
+                 is_gen, is_list, comp, yield_expr):
+    if name:
+        return ast.Name(name.value, ast.Load(), **loc @ name)
+
+    if number:
+        return ast.Num(eval(number.value), **loc @ number)
+
+    if strs:
+        return str_maker(*strs)
+
+    if ellipsis:
+        return ast.Ellipsis()
+
+    if namedc:
+        return ast.NameConstant(eval(namedc.value), **loc @ namedc)
+
+    if is_dict:
+        return dict or ex_ast.ExDict([], [], ast.Load(), **loc @ is_dict)
+
+    if is_gen:
+        if yield_expr:
+            return yield_expr
+        return comp(is_tuple=True) if comp else ast.Tuple([], ast.Load(), **
+                                                          loc @ is_gen)
+
+    if is_list:
+        return comp(is_list=True) if comp else ast.List([], ast.Load(), **
+                                                        loc @ is_list)
+
+    raise TypeError

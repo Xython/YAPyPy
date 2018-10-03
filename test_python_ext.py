@@ -27,25 +27,11 @@ res: Tag = to_tagged_ast(stmt)
 print(res.tag.show_resolution())
 
 stmt = parse("""
-from os.path import join
-from os import *
-from os.path import *
-def f(x):
-    x
-
-print(join('a', 'b'))
-print(f(1))
-x, y = 1, 2
-print(x, y)
+assert not hasattr(1, 'x')
 """).result
 
-res: Tag = to_tagged_ast(stmt)
-
-code = py_compile(res)
-
-dis.dis(code)
-
-exec(code)
+pprint(stmt)
+exec(py_compile(stmt))
 
 try:
     parse_expr('f(a=1, b)\n')

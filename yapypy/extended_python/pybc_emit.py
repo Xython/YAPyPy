@@ -1,4 +1,5 @@
 import ast
+from astpretty import pprint
 from typing import NamedTuple
 import yapypy.extended_python.extended_ast as ex_ast
 
@@ -141,6 +142,35 @@ def py_emit(node: ast.JoinedStr, ctx: Context):
 
 @py_emit.case(ast.FormattedValue)
 def py_emit(node: ast.FormattedValue, ctx: Context):
+    """
+    title: formatted value
+    test:
+    >>> from datetime import datetime
+    >>> p = print
+    >>> A = "A"
+    >>> assert f'{A}' == A
+    >>> assert f'{A!r}' == "'A'"
+    >>> p (f'{A!s}')
+    >>> p (f'{A!a}')
+
+    >>> p (f'{A!r:>30}')
+    >>> p (f'{A!r:<30}')
+
+    >>> p (f'{A!r:^30}')
+    >>> p (f'{A!r:*^20}')
+
+    >>> p (f'{3.14:+f}')
+    >>> p (f'{3.14:f}')
+    >>> p (f'{3.14:-f}')
+    >>> a = 233
+    >>> p (f'{a:d} {a:x} {a:o} {a:b}')
+    >>> p (f'{a:d} {a:#x} {a:#o} {a:#b}')
+
+    >>> p (f'{123456789:,}')
+    >>> p (f'{19/22:.2%}')
+
+    >>> p (f'{datetime.now():%Y-%m-%d %H:%M:%S}' )
+    """
     conversion = node.conversion
     format_spec = node.format_spec
     value = node.value
@@ -161,6 +191,7 @@ def py_emit(node: ast.FormattedValue, ctx: Context):
 @py_emit.case(ast.Raise)
 def py_emit(node: ast.Raise, ctx: Context):
     """
+    title: raise
     prepare:
     >>> def cache_exc(exc_func, handler_func):
     >>>     try:
@@ -234,6 +265,25 @@ def py_emit(node: ast.Assert, ctx: Context):
     ctx.bc.append(label)
 
 
+@py_emit.case(ast.Set)
+def py_emit(node: ast.Set, ctx: Context):
+    """
+    title: set
+    prepare:
+    >>> 
+    
+    test:
+    >>> {1,2,3,4}
+    >>> {233,'233',{1}}
+    """
+    elts = node.elts
+    n = 0
+    for elt in elts:
+        py_emit(elt, ctx)
+        n += 1
+    ctx.bc.append (Instr("BUILD_SET",n,lineno=node.lineno))
+
+
 @py_emit.case(ast.Delete)
 def py_emit(node: ast.Delete, ctx: Context):
     for each in node.targets:
@@ -242,7 +292,22 @@ def py_emit(node: ast.Delete, ctx: Context):
 
 @py_emit.case(ast.Tuple)
 def py_emit(node: ast.Tuple, ctx: Context):
-    is_lhs = isinstance(node.ctx, ast.Store)
+    """
+    title: tuple
+    test:
+    >>> x = 1
+    >>> print((x, 2, 3))
+    >>> x, y = 2, 3
+    >>> print(x, y)
+    >>> x, *y, z = 2, 3, 5
+    >>> y, = y
+    >>> assert x == 2  and  y == 3 and z == 5
+    >>> x, *y, z, t = 2, 3, 5, 5
+    >>> assert t == 5
+    >>> print((t, *(1, 2, 3)))
+    >>> del (x, y, z, t)
+    """
+    expr_ctx = type(node.ctx)
 
     star_indices = [
         idx for idx, each in enumerate(node.elts)
@@ -251,31 +316,59 @@ def py_emit(node: ast.Tuple, ctx: Context):
     if star_indices:
         elts = node.elts
         n = len(elts)
-        if len(star_indices) is not 1:
+        if expr_ctx is ast.Del:
             exc = SyntaxError()
+            exc.msg = "try to delete starred expression."
             exc.lineno = node.lineno
-            exc.msg = f'{len(star_indices)} starred expressions in assignment'
             raise exc
-        star_idx = star_indices[0]
-        n_right = n - star_idx - 1
-        n_left = star_idx
-        unpack_arg = n_left + 256 * n_right
-        ctx.bc.append(UNPACK_EX(unpack_arg, lineno=node.lineno))
-        for i in range(0, star_idx):
-            py_emit(elts[i], ctx)
-        starred: ast.Starred = elts[star_idx]
-        py_emit(starred.value, ctx)
-        for i in range(star_idx + 1, n):
-            py_emit(elts[i])
 
-    if is_lhs:
-        UNPACK_SEQUENCE(len(node.elts), lineno=node.lineno)
+        if expr_ctx is ast.Store:
+            if len(star_indices) is not 1:
+                exc = SyntaxError()
+                exc.lineno = node.lineno
+                exc.msg = f'{len(star_indices)} starred expressions in assignment'
+                raise exc
+            star_idx = star_indices[0]
+            n_right = n - star_idx - 1
+            n_left = star_idx
+            unpack_arg = n_left + 256 * n_right
+            ctx.bc.append(UNPACK_EX(unpack_arg, lineno=node.lineno))
+
+            for i in range(0, star_idx):
+                py_emit(elts[i], ctx)
+            starred: ast.Starred = elts[star_idx]
+            py_emit(starred.value, ctx)
+            for i in range(star_idx + 1, n):
+                py_emit(elts[i], ctx)
+        else:
+            intervals = [*star_indices, n - 1][::-1]
+            last = 0
+            num = 0
+            while intervals:
+                now = intervals.pop()
+                if now > last:
+                    for i in range(last, now):
+                        py_emit(elts[i], ctx)
+                    ctx.bc.append(BUILD_TUPLE(now - last))
+                    num += 1
+                py_emit(elts[now].value, ctx)
+                num += 1
+                last = now + 1
+            ctx.bc.append(BUILD_TUPLE_UNPACK(num))
+        return
+
+    if expr_ctx is ast.Store:
+        ctx.bc.append(UNPACK_SEQUENCE(len(node.elts), lineno=node.lineno))
+        for each in node.elts:
+            py_emit(each, ctx)
+    elif expr_ctx is ast.Del:
         for each in node.elts:
             py_emit(each, ctx)
     else:
         for each in node.elts:
             py_emit(each, ctx)
-        BUILD_TUPLE(len(node.elts), lineno=node.lineno)
+
+        ctx.bc.append(BUILD_TUPLE(len(node.elts), lineno=node.lineno))
 
 
 @py_emit.case(ast.FunctionDef)
@@ -422,6 +515,41 @@ def py_emit(node: ast.Expr, ctx: Context):
 
 @py_emit.case(ast.Call)
 def py_emit(node: ast.Call, ctx: Context):
+    """
+    title: call
+    test:
+     >>> a = 'a',
+     >>> b = 'b',
+     >>> c = 'c',
+     >>> d = {'d': 0}
+     >>> e = {'e': 1}
+     >>> g = {'g': 2}
+     >>> x = {'x': 3}
+     >>> y = {'y': 4}
+     >>>
+     >>>
+     >>> def f(*args, **kwargs):
+     >>>     print(args, kwargs)
+     >>>
+     >>> f(1, c=3, d=4)
+     >>>
+     >>> f(1, 2, *a, 3, *b, *c, 4, **e, **g)
+     >>> f(1, *b, d=4)
+     >>>
+     >>> f(1, 2, 3, a=1, b=2)
+     >>> f(*a, 1, *a, 2, 3, *b, *e, 3, *c, **x, **y)
+     >>> f(*a, 1, *a, 2, *b, 3, *c, **x, **y)
+     >>> f(1, *a, 2, *b, 3, *c, **x, **y)
+     >>> f(1, 2, **e, **d)
+     >>> f(**e, **d)
+     >>> f(*b, **d)
+     >>> f(*b)
+     >>> f(a, *b)
+     >>> f(1, 2, *c, **d, **e)
+     >>> f(1, 2, *c)
+     >>> f(1, 2, y=1, *x, a=1, b=2, c=3, **d)
+     >>> f(1, 2, y=1, *x, a=1, b=2, c=3, **d, e=4)
+    """
     py_emit(node.func, ctx)
 
     has_star = False
@@ -551,6 +679,14 @@ def py_emit(node: ast.Call, ctx: Context):
 
 @py_emit.case(ast.YieldFrom)
 def py_emit(node: ast.YieldFrom, ctx: Context):
+    """
+    title: yield from
+    test:
+    >>> def f():
+    >>>   yield from 1,
+    >>> assert next(f()) == 1
+    """
+    ctx.bc.flags |= CompilerFlags.GENERATOR
     append = ctx.bc.append
     py_emit(node.value, ctx)
     append(Instr('GET_YIELD_FROM_ITER', lineno=node.lineno))
@@ -583,12 +719,31 @@ def py_emit(node: ast.Attribute, ctx: Context):
 
 @py_emit.case(ast.Yield)
 def py_emit(node: ast.Yield, ctx: Context):
+    """
+    title: yield
+    prepare:
+    >>> import unittest
+    >>> self: unittest.TestCase
+    test:
+    >>> def f():
+    >>>     yield 1
+    >>> self.assertEqual(1, next(f()))
+    """
+    ctx.bc.flags |= CompilerFlags.GENERATOR
     py_emit(node.value, ctx)
     ctx.bc.append(Instr('YIELD_VALUE', lineno=node.lineno))
 
 
 @py_emit.case(ast.Return)
 def py_emit(node: ast.Return, ctx: Context):
+    """
+    title: return
+    prepare:
+    test:
+    >>> def f():
+    >>>     return 1
+    >>> assert f() == 1
+    """
     py_emit(node.value, ctx)
     ctx.bc.append(Instr('RETURN_VALUE', lineno=node.lineno))
 
@@ -610,7 +765,7 @@ def py_emit(_1, _2):
 
 @py_emit.case(ast.UnaryOp)
 def py_emit(node: ast.UnaryOp, ctx: Context):
-    py_emit(node.value, ctx)
+    py_emit(node.operand, ctx)
     inst = {
         ast.Not: "UNARY_NOT",
         ast.USub: "UNARY_NEGATIVE",
@@ -686,6 +841,20 @@ def py_emit(node: ast.Import, ctx: Context):
 
 @py_emit.case(ast.ImportFrom)
 def py_emit(node: ast.ImportFrom, ctx: Context):
+    """
+    title: import from
+    test:
+     >>> from os.path import join
+     >>> from os import *
+     >>> from os.path import *
+     >>> def f(x):
+     >>>     x
+     >>>
+     >>> print(join('a', 'b'))
+     >>> print(f(1))
+     >>> x, y = 1, 2
+     >>> print(x, y)
+    """
     lineno = node.lineno
 
     ctx.bc.append(Instr("LOAD_CONST", node.level, lineno=lineno))
