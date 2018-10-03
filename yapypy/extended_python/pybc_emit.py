@@ -304,7 +304,8 @@ def py_emit(node: ast.Tuple, ctx: Context):
     >>> assert x == 2  and  y == 3 and z == 5
     >>> x, *y, z, t = 2, 3, 5, 5
     >>> assert t == 5
-    >>> print((t, *(1, 2, 3)))
+    >>> print( (1, *(2, 3, 4), 5, *(6, 7), 8) )
+    >>> assert  (1, *(2, 3, 4), 5, *(6, 7), 8) == (1, 2, 3, 4, 5, 6, 7, 8)
     >>> del (x, y, z, t)
     """
     expr_ctx = type(node.ctx)
@@ -341,7 +342,7 @@ def py_emit(node: ast.Tuple, ctx: Context):
             for i in range(star_idx + 1, n):
                 py_emit(elts[i], ctx)
         else:
-            intervals = [*star_indices, n - 1][::-1]
+            intervals = [*star_indices, n][::-1]
             last = 0
             num = 0
             while intervals:
@@ -351,8 +352,9 @@ def py_emit(node: ast.Tuple, ctx: Context):
                         py_emit(elts[i], ctx)
                     ctx.bc.append(BUILD_TUPLE(now - last))
                     num += 1
-                py_emit(elts[now].value, ctx)
-                num += 1
+                if len(intervals) > 0: # starred item
+                    py_emit(elts[now].value, ctx)
+                    num += 1
                 last = now + 1
             ctx.bc.append(BUILD_TUPLE_UNPACK(num))
         return
@@ -385,7 +387,8 @@ def py_emit(node: ast.List, ctx: Context):
     >>> assert x == 2 and y == 3 and z == 5
     >>> [x, *y, z, t] = [2, 3, 5, 5]
     >>> assert t == 5
-    >>> print([t, *[1, 2, 3]])
+    >>> print( [1, *[2, 3, 4], 5, *[6, 7], 8] )
+    >>> assert  [1, *[2, 3, 4], 5, *[6, 7], 8] == [1, 2, 3, 4, 5, 6, 7, 8]
     >>> del [x, y, z, t]
     """
     expr_ctx = type(node.ctx)
@@ -422,7 +425,7 @@ def py_emit(node: ast.List, ctx: Context):
             for i in range(star_idx + 1, n):
                 py_emit(elts[i], ctx)
         else:
-            intervals = [*star_indices, n - 1][::-1]
+            intervals = [*star_indices, n][::-1]
             last = 0
             num = 0
             while intervals:
@@ -432,8 +435,9 @@ def py_emit(node: ast.List, ctx: Context):
                         py_emit(elts[i], ctx)
                     ctx.bc.append(BUILD_LIST(now - last))
                     num += 1
-                py_emit(elts[now].value, ctx)
-                num += 1
+                if len(intervals) > 0: # starred item
+                    py_emit(elts[now].value, ctx)
+                    num += 1
                 last = now + 1
             ctx.bc.append(BUILD_LIST_UNPACK(num))
         return
