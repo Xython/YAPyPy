@@ -173,10 +173,10 @@ testlist_comp  ::= values<<(test|star_expr) ( comp=comp_for | (',' values<<(test
                      app
 
 # `ExtSlice` is ignored here. We don't need this optimization for this project.
-trailer        ::=  arglist=arglist | mark='[' subscr=subscriptlist ']' | mark='.' attr=NAME
-                    -> (lambda value: Slice(value, subscr, **loc @ mark))        if subscr  else\
-                       (lambda value: Call(value, *split_args_helper(arglist)))  if arglist else\
-                       (lambda value: Attribute(value, attr.value, Load(), **loc @ mark))                       
+trailer        ::=  arglist=arglist | mark='[' subscr=subscriptlist ']' | mark='.' attr=NAMESTR
+                    -> (lambda value: Slice(value, subscr, **loc @ mark))        if subscr  is not None else\
+                       (lambda value: Call(value, *split_args_helper(arglist)))  if arglist is not None else\
+                       (lambda value: Attribute(value, attr, Load(), **loc @ mark))                       
                        
 # `Index` will be deprecated in Python3.8. 
 # See https://github.com/python/cpython/pull/9605#issuecomment-425381990                        

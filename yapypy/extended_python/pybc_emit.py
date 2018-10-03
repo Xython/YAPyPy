@@ -551,6 +551,7 @@ def py_emit(node: ast.Call, ctx: Context):
 
 @py_emit.case(ast.YieldFrom)
 def py_emit(node: ast.YieldFrom, ctx: Context):
+    ctx.bc.flags |= CompilerFlags.GENERATOR
     append = ctx.bc.append
     py_emit(node.value, ctx)
     append(Instr('GET_YIELD_FROM_ITER', lineno=node.lineno))
@@ -583,6 +584,17 @@ def py_emit(node: ast.Attribute, ctx: Context):
 
 @py_emit.case(ast.Yield)
 def py_emit(node: ast.Yield, ctx: Context):
+    """
+    title: yield
+    prepare:
+    >>> import unittest
+    >>> self: unittest.TestCase
+    test:
+    >>> def f():
+    >>>     yield 1
+    >>> self.assertEqual(1, next(f()))
+    """
+    ctx.bc.flags |= CompilerFlags.GENERATOR
     py_emit(node.value, ctx)
     ctx.bc.append(Instr('YIELD_VALUE', lineno=node.lineno))
 
