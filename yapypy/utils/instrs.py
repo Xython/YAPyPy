@@ -1,4 +1,4 @@
-from bytecode import Instr
+from bytecode import Instr, Label
 
 
 def LOAD_ATTR(attr: str, *, lineno=None):
@@ -8,8 +8,29 @@ def LOAD_ATTR(attr: str, *, lineno=None):
 def STORE_ATTR(attr: str, *, lineno=None):
     return Instr('STORE_ATTR', attr, lineno=lineno)
 
+
 def DELETE_ATTR(attr: str, *, lineno=None):
     return Instr('DELETE_ATTR', attr, lineno=lineno)
+
+
+def CALL_FUNCTION(n: int, *, lineno=None):
+    return Instr('CALL_FUNCTION', n, lineno=lineno)
+
+
+def RAISE_VARARGS(n: int, lineno=None):
+    return Instr('RAISE_VARARGS', n, lineno=lineno)
+
+
+def POP_JUMP_IF_TRUE(label: Label, lineno=None):
+    return Instr('POP_JUMP_IF_TRUE', label, lineno=lineno)
+
+
+def UNPACK_EX(arg: int, lineno=None):
+    return Instr('UNPACK_EX', arg, lineno=lineno)
+
+
+def LOAD_GLOBAL(name: str, lineno=None):
+    return Instr('LOAD_GLOBAL', name, lineno=lineno)
 
 
 def LOAD_CONST(var: object, *, lineno=None):

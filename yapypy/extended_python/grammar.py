@@ -8,7 +8,7 @@ NUMBER := ''
 STRING := ''
 
 single_input ::= it=NEWLINE | seq=simple_stmt | it=compound_stmt NEWLINE
-file_input   ::= (NEWLINE | seqs<<stmt)* ENDMARKER -> mod=Module(sum(seqs, [])); fix_missing_locations(mod); return mod
+file_input   ::= (NEWLINE | seqs<<stmt)* [ENDMARKER] -> mod=Module(sum(seqs or [], [])); fix_missing_locations(mod); return mod
 eval_input   ::= it=testlist NEWLINE* ENDMARKER -> Expression(it)
 
 # the restrictions of decorator syntax are released here for the sake of convenience.
@@ -53,7 +53,7 @@ testlist_star_expr ::= seq<<(test|star_expr) (',' seq<<(test|star_expr))* [force
 augassign   ::= it=('+=' | '-=' | '*=' | '@=' | '/=' | '%=' | '&=' | '|=' | '^=' |                            # ------------------------------
                     '<<=' | '>>=' | '**=' | '//=')                                                            -> augassign_rewrite(it)
 # For normal and annotated assignments, additional restrictions enforced by the interpreter                   -------------------------------
-del_stmt   ::= mark='del' tp=exprlist                                                                         -> Delete([as_del(elt) for elt in tp.elts] if isinstance(tp, Tuple) else [as_del(tp)], **loc @ mark)
+del_stmt   ::= mark='del' lst=exprlist                                                                         -> Delete([as_del(elt) for elt in lst], **loc @ mark)
 pass_stmt  ::= mark='pass'                                                                                    -> Pass(**loc @ mark)
 flow_stmt  ::= it=(break_stmt | continue_stmt | return_stmt | raise_stmt | yield_stmt)                        -> it
 break_stmt ::= mark='break'                                                                                   -> Break(**loc @ mark)

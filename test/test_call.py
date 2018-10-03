@@ -3,7 +3,10 @@ from astpretty import pprint
 from yapypy.extended_python.parser import parse
 from yapypy.extended_python.symbol_analyzer import ASTTagger, SymTable, to_tagged_ast, Tag
 from yapypy.extended_python.pybc_emit import py_compile
-code = r"""
+
+
+def test_call():
+    code = r"""
 a = 'a',
 b = 'b',
 c = 'c',
@@ -35,8 +38,8 @@ f(1, 2, *c, **d, **e)
 f(1, 2, *c)
 f(1, 2, y=1, *x, a=1, b=2, c=3, **d)
 f(1, 2, y=1, *x, a=1, b=2, c=3, **d, e=4)
-"""
+    """
 
-res: Tag = to_tagged_ast(parse(code).result)
+    res: Tag = to_tagged_ast(parse(code).result)
 
-exec(py_compile(res))
+    exec(py_compile(res))

@@ -1,9 +1,11 @@
 import ast
 from typing import NamedTuple
 import yapypy.extended_python.extended_ast as ex_ast
-from yapypy.extended_python.symbol_analyzer import SymTable, Tag
+
+from yapypy.extended_python.symbol_analyzer import SymTable, Tag, to_tagged_ast
 from yapypy.utils.namedlist import INamedList, as_namedlist, trait
 from yapypy.utils.instrs import *
+
 from Redy.Magic.Pattern import Pattern
 from bytecode import *
 from bytecode.concrete import FreeVar, CellVar, Compare
@@ -96,9 +98,14 @@ class Context(INamedList, metaclass=trait(as_namedlist)):
 
 
 def py_compile(node: Tag):
-    ctx = Context(Bytecode(), IndexedAnalyzedSymTable.from_raw(node.tag), None)
-    py_emit(node.it, ctx)
-    return ctx.bc.to_code()
+    if isinstance(node, Tag):
+        ctx = Context(Bytecode(), IndexedAnalyzedSymTable.from_raw(node.tag),
+                      None)
+        py_emit(node.it, ctx)
+        return ctx.bc.to_code()
+    else:
+        tag = to_tagged_ast(node)
+        return py_compile(tag)
 
 
 @Pattern
@@ -148,14 +155,119 @@ def py_emit(node: ast.FormattedValue, ctx: Context):
     if format_spec:
         py_emit(format_spec, ctx)
         flags += 4
-    ctx.bc.append(Instr("FORMAT_VALUE", flags))
+    ctx.bc.append(Instr("FORMAT_VALUE", flags, lineno=node.lineno))
+
+
+@py_emit.case(ast.Raise)
+def py_emit(node: ast.Raise, ctx: Context):
+    """
+    prepare:
+    >>> def cache_exc(exc_func, handler_func):
+    >>>     try:
+    >>>         exc_func()
+    >>>     except Exception as e:
+    >>>         handler_func(e)
+    >>> def handler_empty (e):
+    >>>     assert isinstance(e,RuntimeError)
+    >>> def handler_typeerr (e):
+    >>>     assert isinstance(e,TypeError)
+    >>> def handler_cause (e):
+    >>>     assert isinstance(e,ValueError)
+    >>>     assert isinstance(e.__cause__,NameError)
+
+    test:
+    >>> def raise_empty ():
+    >>>     raise
+    >>> def raise_typeerr ():
+    >>>     raise TypeError('typeerror')
+    >>> def raise_cause ():
+    >>>     raise ValueError('value') from NameError('name')
+    >>> cache_exc (raise_empty, handler_empty)
+    >>> cache_exc (raise_typeerr, handler_typeerr)
+    >>> cache_exc (raise_cause, handler_cause)
+    """
+    exc = node.exc
+    cause = node.cause
+    argc = 0
+    if exc:
+        py_emit(exc, ctx)
+        argc += 1
+    if cause:
+        py_emit(cause, ctx)
+        argc += 1
+    ctx.bc.append(Instr("RAISE_VARARGS", argc, lineno=node.lineno))
+
+
+@py_emit.case(ast.Assert)
+def py_emit(node: ast.Assert, ctx: Context):
+    """
+    title: assert
+    prepare:
+    >>> def cache_exc(exc_func, handler_func):
+    >>>     try:
+    >>>         exc_func()
+    >>>     except Exception as e:
+    >>>         handler_func(e)
+    >>> def handler_zero (e):
+    >>>     assert isinstance(e, AssertionError)
+
+    test:
+    >>> def assert_zero ()
+    >>>     assert 0,"num is zero"
+    >>> cache_exc(assert_zero, handler_zero)
+    """
+    test = node.test
+    msg = node.msg
+    label = Label()
+    py_emit(test, ctx)
+    ctx.bc.append(POP_JUMP_IF_TRUE(label, lineno=node.lineno))
+
+    # calc msg and
+    ctx.bc.append(LOAD_GLOBAL("AssertionError", lineno=node.lineno))
+    if msg:
+        py_emit(msg, ctx)
+        ctx.bc.append(
+            Instr("CALL_FUNCTION", 1,
+                  lineno=node.lineno))  # AssertError(<arg>) , awalys 1
+    ctx.bc.append(Instr("RAISE_VARARGS", 1,
+                        lineno=node.lineno))  # <argc> awalys 1
+    ctx.bc.append(label)
+
+
+@py_emit.case(ast.Delete)
+def py_emit(node: ast.Delete, ctx: Context):
+    for each in node.targets:
+        py_emit(each, ctx)
 
 
 @py_emit.case(ast.Tuple)
 def py_emit(node: ast.Tuple, ctx: Context):
     is_lhs = isinstance(node.ctx, ast.Store)
-    if any(isinstance(each, ast.Starred) for each in node.elts):
-        raise NotImplemented
+
+    star_indices = [
+        idx for idx, each in enumerate(node.elts)
+        if isinstance(each, ast.Starred)
+    ]
+    if star_indices:
+        elts = node.elts
+        n = len(elts)
+        if len(star_indices) is not 1:
+            exc = SyntaxError()
+            exc.lineno = node.lineno
+            exc.msg = f'{len(star_indices)} starred expressions in assignment'
+            raise exc
+        star_idx = star_indices[0]
+        n_right = n - star_idx - 1
+        n_left = star_idx
+        unpack_arg = n_left + 256 * n_right
+        ctx.bc.append(UNPACK_EX(unpack_arg, lineno=node.lineno))
+        for i in range(0, star_idx):
+            py_emit(elts[i], ctx)
+        starred: ast.Starred = elts[star_idx]
+        py_emit(starred.value, ctx)
+        for i in range(star_idx + 1, n):
+            py_emit(elts[i])
+
     if is_lhs:
         UNPACK_SEQUENCE(len(node.elts), lineno=node.lineno)
         for each in node.elts:
@@ -254,7 +366,7 @@ def py_emit(node: ast.FunctionDef, new_ctx: Context):
 
     new_ctx.bc.append(Instr('LOAD_CONST', None))
     new_ctx.bc.append(Instr('RETURN_VALUE'))
-    print(new_ctx.bc)
+
     inner_code = new_ctx.bc.to_code()
 
     parent_ctx.bc.append(Instr('LOAD_CONST', inner_code, lineno=node.lineno))
@@ -448,6 +560,18 @@ def py_emit(node: ast.YieldFrom, ctx: Context):
 
 @py_emit.case(ast.Attribute)
 def py_emit(node: ast.Attribute, ctx: Context):
+    """
+    title: attribute
+    prepare:
+    >>> class S: pass
+    >>> s = S()
+
+    test:
+    >>> s.x = 1
+    >>> assert s.x == 1
+    >>> del s.x
+    >>> assert not hasattr(s, 'x')
+    """
     py_emit(node.value, ctx)
 
     ctx.bc.append({
@@ -580,25 +704,6 @@ def py_emit(node: ast.ImportFrom, ctx: Context):
             ctx.store_name(as_name, lineno=lineno)
         ctx.bc.append(POP_TOP(lineno=lineno))
 
-@py_emit.case(ast.ListComp)
-def py_emit(node: ast.ListComp, ctx: Context):
-    loop_start = Label()
-    loop_done = Label()
-    loop_exit = Label()
-
-    append = ctx.bc.append
-    append(Instr("BUILD_LIST", lineno=node.lineno))
-    append(Instr("LOAD_FAST", '.0', lineno=node.lineno))
-    append(loop_start)
-    append(Instr("FOR_ITER", loop_done))
-    py_emit(node.generators[0].target)
-    py_emit(node.generators[0].iter)
-    py_emit(node.elt)
-    append(Instr("LIST_APPEND"))
-    append(Instr("JUMP_ABSOLUTE", loop_start))
-    append(loop_exit)
-
-
 
 @py_emit.case(ast.Compare)
 def py_emit(node: ast.Compare, ctx: Context):
@@ -644,19 +749,22 @@ def py_emit(node: ast.Compare, ctx: Context):
 
             py_emit(expr, ctx)
             if idx == last_idx_of_comparators:
-                ctx.bc.append(Instr("JUMP_FORWARD", label_out))
+                ctx.bc.append(
+                    Instr("JUMP_FORWARD", label_out, lineno=node.lineno))
             else:
-                ctx.bc.append(Instr("DUP_TOP"))
-                ctx.bc.append(Instr("ROT_THREE"))
+                ctx.bc.append(DUP_TOP(lineno=node.lineno))
+                ctx.bc.append(Instr("ROT_THREE", lineno=node.lineno))
                 ctx.bc.append(Instr("COMPARE_OP", op, lineno=node.lineno))
-                ctx.bc.append(Instr("JUMP_IF_FALSE_OR_POP", label_rot))
+                ctx.bc.append(
+                    Instr(
+                        "JUMP_IF_FALSE_OR_POP", label_rot, lineno=node.lineno))
 
         ctx.bc.append(label_rot)
-        ctx.bc.append(Instr("ROT_TWO"))
-        ctx.bc.append(Instr("POP_TOP"))
+        ctx.bc.append(Instr("ROT_TWO", lineno=node.lineno))
+        ctx.bc.append(POP_TOP(lineno=node.lineno))
         ctx.bc.append(label_out)
     else:
         py_emit(node.comparators[0], ctx)
-        op_type= type(node.ops[0])
+        op_type = type(node.ops[0])
         op = ops.get(op_type)
         ctx.bc.append(Instr("COMPARE_OP", op, lineno=node.lineno))
