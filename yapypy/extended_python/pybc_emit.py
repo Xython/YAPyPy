@@ -151,6 +151,36 @@ def py_emit(node: ast.FormattedValue, ctx: Context):
     ctx.bc.append(Instr("FORMAT_VALUE", flags))
 
 
+@py_emit.case(ast.Raise)
+def py_emit(node: ast.Raise, ctx: Context):
+    """
+    test:
+    >>> try:
+    ...     raise
+    ... except RuntimeError as e:
+    ...     assert isinstance(e,RuntimeError)
+    >>> try:
+    ...     raise TypeError('typeerror')
+    ... except TypeError as e:
+    ...     assert isinstance(e,TypeError)
+    >>> try:
+    ...     raise ValueError('value') from NameError('name')
+    ... except ValueError as e:
+    ...     assert isinstance(e,ValueError)
+    ...     assert isinstance(e.__cause__,NameError)
+    """
+    exc = node.exc
+    cause = node.cause
+    argc = 0
+    if exc:
+        py_emit(exc, ctx)
+        argc += 1
+    if cause:
+        py_emit(cause, ctx)
+        argc += 1
+    ctx.bc.append(Instr("RAISE_VARARGS",argc))
+
+
 @py_emit.case(ast.Tuple)
 def py_emit(node: ast.Tuple, ctx: Context):
     is_lhs = isinstance(node.ctx, ast.Store)
