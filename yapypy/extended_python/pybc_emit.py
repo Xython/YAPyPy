@@ -212,7 +212,7 @@ def py_emit(node: ast.Raise, ctx: Context):
 
     test:
     >>> def raise_empty ():
-    >>>     raise
+    >>>     exec('raise')
     >>> def raise_typeerr ():
     >>>     raise TypeError('typeerror')
     >>> def raise_cause ():
