@@ -1356,29 +1356,6 @@ def py_emit(node: ast.If, ctx: Context):
             ctx.bc.append(else_lable)
 
 
-def comprehension_continuation(nodes: typing.List[Tag], ctx: Context):
-    head: Tag
-    head, *tail = nodes
-    ctx = ctx.enter_new(head.tag)
-    head: ast.comprehension = head.it
-    if not tail:
-
-        def call_cc(state_fn, fn):
-            parent = ctx.parent
-            py_emit(head.iter, parent)
-            parent.bc.append(CALL_FUNCTION(1))
-            state_fn(ctx, fn)
-    else:
-
-        def call_cc(state_fn, fn):
-            parent = ctx.parent
-            py_emit(head.iter, parent)
-            parent.bc.append(CALL_FUNCTION(1))
-            state_fn(ctx, comprehension_continuation(tail))
-
-    return call_cc
-
-
 @py_emit.case(ast.DictComp)
 def py_emit(node: ast.DictComp, ctx: Context):
     """
