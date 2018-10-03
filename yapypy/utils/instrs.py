@@ -93,6 +93,18 @@ def ROT_THREE(*, lineno=None):
     return Instr('ROT_THREE', lineno=lineno)
 
 
+def RETURN_VALUE(*, lineno=None):
+    return Instr('RETURN_VALUE', lineno=lineno)
+
+
+def MAKE_FUNCTION(n: int, *, lineno=None):
+    return Instr("MAKE_FUNCTION", n, lineno=lineno)
+
+
+def JUMP_ABSOLUTE(label: Label, *, lineno=None):
+    return Instr("JUMP_ABSOLUTE", label, lineno=lineno)
+
+
 def DUP_TOP(*, lineno=None):
     return Instr('DUP_TOP', lineno=lineno)
 

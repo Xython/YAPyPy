@@ -1,4 +1,5 @@
 import ast
+import dis
 import sys
 import typing
 from typing import NamedTuple
@@ -41,7 +42,7 @@ class Context(INamedList, metaclass=trait(as_namedlist)):
     def enter_new(self, tag_table: SymTable):
         sym_tb = IndexedAnalyzedSymTable.from_raw(tag_table)
         bc = Bytecode()
-        bc.flags |= CompilerFlags.NEWLOCALS
+        bc.flags |= CompilerFlags.NEWLOCALS  # TODO
         if tag_table.depth > 1:
             bc.flags |= CompilerFlags.NESTED
 
@@ -51,7 +52,7 @@ class Context(INamedList, metaclass=trait(as_namedlist)):
             bc.freevars.extend(sym_tb.freevars)
 
         bc.cellvars.extend(sym_tb.cellvars)
-        return self.update(parent=self, bc=Bytecode(), sym_tb=sym_tb)
+        return self.update(parent=self, bc=bc, sym_tb=sym_tb)
 
     def load_name(self, name, lineno=None):
         sym_tb = self.sym_tb
@@ -253,6 +254,7 @@ def py_emit(node: ast.AugAssign, ctx: Context):
     >>> f()['a'] *= 2
     >>> assert f()['a'] == 2
     """
+
     def lhs_to_rhs(instr: Instr):
         opname = {
             'STORE_SUBSCR': 'BINARY_SUBSCR',
@@ -1349,3 +1351,75 @@ def py_emit(node: ast.If, ctx: Context):
             ctx.bc.append(out_label)
         else:
             ctx.bc.append(else_lable)
+
+
+def comprehension_continuation(nodes: typing.List[Tag], ctx: Context):
+    head: Tag
+    head, *tail = nodes
+    ctx = ctx.enter_new(head.tag)
+    head: ast.comprehension = head.it
+    if not tail:
+
+        def call_cc(state_fn, fn):
+            parent = ctx.parent
+            py_emit(head.iter, parent)
+            parent.bc.append(CALL_FUNCTION(1))
+            state_fn(ctx, fn)
+    else:
+
+        def call_cc(state_fn, fn):
+            parent = ctx.parent
+            py_emit(head.iter, parent)
+            parent.bc.append(CALL_FUNCTION(1))
+            state_fn(ctx, comprehension_continuation(tail))
+
+    return call_cc
+
+
+@py_emit.case(ast.DictComp)
+def py_emit(node: ast.DictComp, ctx: Context):
+    """
+    title: dictcomp
+    test:
+    >>> print({1: 2 for i in range(10)})
+    >>> print({i: j for i in range(2) for j in range(3)})
+    """
+    ctx.bc.append(Instr('BUILD_MAP', 0))
+    parent = ctx.parent
+    labels = []
+    for each in node.generators:
+        if each.is_async:
+            raise NotImplemented
+
+        pair = begin_label, end_label = Label(), Label()
+        labels.append(pair)
+        py_emit(each.iter, ctx)
+        ctx.bc.append(Instr('FOR_ITER', end_label))
+        ctx.bc.append(begin_label)
+        ctx.bc.append(Instr('GET_ITER'))
+        py_emit(each.target, ctx)
+
+    py_emit(node.value, ctx)
+    py_emit(node.key, ctx)
+
+    ctx.bc.append(Instr('MAP_ADD', len(node.generators) + 1))
+
+    while labels:
+        begin_label, end_label = labels.pop()
+        ctx.bc.append(end_label)
+        ctx.bc.append(JUMP_ABSOLUTE(begin_label))
+
+    ctx.bc.append(RETURN_VALUE())
+    flags = 0x08 if ctx.sym_tb.freevars else 0
+    if flags & 0x08:
+        ctx.load_closure()
+
+    inner_code = ctx.bc.to_code()
+    dis.show_code(inner_code)
+    dis.dis(inner_code)
+    print('+++++++++++++++++++++++++++++++++++++++++++++++++')
+    # dis.dis(inner_code)
+    parent.bc.append(LOAD_CONST(inner_code))
+    parent.bc.append(LOAD_CONST(f'{ctx.bc.name}.<locals>.<dictcomp>'))
+    parent.bc.append(MAKE_FUNCTION(flags))
+    parent.bc.append(CALL_FUNCTION(0))

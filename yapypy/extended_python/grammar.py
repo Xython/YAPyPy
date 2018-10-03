@@ -175,8 +175,8 @@ subscriptlist  ::= head=subscript (',' tail << subscript)* [',']
                    ->  Index(head if not tail else Tuple([head, *tail], Load()))                                      
 subscript3     ::= [lower=test] subscr=[':' [upper=test] [':' [step=test]]] -> Slice(lower, upper, step) if subscr else lower      
 subscript      ::= it=(subscript3 | test) -> it
-exprlist       ::= seq << (expr|star_expr) (',' seq << (expr|star_expr))* [','] -> seq
-testlist       ::= seq << test (',' seq << test)* [force_tuple=','] -> Tuple(seq, Load()) if force_tuple or len(seq) > 1 else seq[0]
+exprlist       ::= seq << (expr|star_expr) (',' seq << (expr|star_expr))* [force_tuple=','] -> Tuple(seq, Load()) if force_tuple or len(seq) > 1 else seq[0]
+testlist       ::= seq << test (',' seq << test)* [force_tuple=',']                         -> Tuple(seq, Load()) if force_tuple or len(seq) > 1 else seq[0]
 
 dict_unpack_s  ::= '**' -> None                
 dictorsetmaker ::= (((keys<<test ':' values<<test | keys<<dict_unpack_s values<<expr)

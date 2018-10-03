@@ -33,13 +33,11 @@ res: Tag = to_tagged_ast(stmt)
 print(res.tag.show_resolution())
 
 stmt = parse("""
-
-x = [0]
-x[0 + 0] += 2
-print(x)    
+print({1: 2 for i in range(2)})    
 """).result
 
-exec(py_compile(stmt))
+
+dis.dis(py_compile(stmt))
 
 try:
     parse_expr('f(a=1, b)\n')
