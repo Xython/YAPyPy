@@ -8,7 +8,7 @@ NUMBER := ''
 STRING := ''
 
 single_input ::= it=NEWLINE | seq=simple_stmt | it=compound_stmt NEWLINE
-file_input   ::= (NEWLINE | seqs<<stmt)* ENDMARKER -> mod=Module(sum(seqs, [])); fix_missing_locations(mod); return mod
+file_input   ::= (NEWLINE | seqs<<stmt)* [ENDMARKER] -> mod=Module(sum(seqs or [], [])); fix_missing_locations(mod); return mod
 eval_input   ::= it=testlist NEWLINE* ENDMARKER -> Expression(it)
 
 # the restrictions of decorator syntax are released here for the sake of convenience.

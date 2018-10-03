@@ -12,14 +12,19 @@ ze_exp = ze.compile(
 [python] import rbnf.std.common.[recover_codes]
 Space   := ' '
 NL      := R'\n'
-Keyword := 'test:' 'prepare:' '>>>'
-Doctest ::= [(~'prepare:')* 'prapare:' ((~'>>>')* '>>>' prepare_lines<< (~NL)+)*]
-            (~'test:')* 'test:' ((~'>>>')* '>>>' test_lines<< (~NL)+)* 
-            -> (tuple(map(recover_codes, prepare_lines)) if prepare_lines else (), 
-                tuple(map(recover_codes, test_lines)))
+Keyword := 'test:' 'prepare:' '>>>' 
+NoSwitch ::= ~Keyword
+Doctest ::= [(~'prepare:')* 'prepare:' (NoSwitch* '>>>' prepare_lines<< (~NL)+ NL+)*]
+            (~'test:')* 'test:' (NoSwitch* '>>>' test_lines<< (~NL)+)* 
+            ->
+              prepare_lines = tuple(map(recover_codes, prepare_lines)) if prepare_lines else ()
+              test          = tuple(map(recover_codes, test_lines))    if test_lines else ()
+              return prepare_lines, test
+                
 lexer   := R'.'
+TestCase ::= [it=Doctest] _* -> it or None
 """,
-    use='Doctest')
+    use='TestCase')
 
 yapypy = Path('yapypy')
 
@@ -36,15 +41,22 @@ class DocStringsCollector(ast.NodeVisitor):
 
     def _visit_fn(self, node: ast.FunctionDef):
         head, *_ = node.body
+
         if isinstance(head, ast.Expr):
             value = head.value
             if isinstance(value, ast.Str):
-                self.docs[node.name] = node.lineno, *ze_exp.match(
-                    value.s).result
+                res = ze_exp.match(value.s).result
+
+                if res:
+                    self.docs[node.name] = node.lineno, *res
         self.generic_visit(node)
+
+    visit_FunctionDef = _visit_fn
 
 
 for each in filter(lambda p: p[-1].endswith('.py'), yapypy.collect()):
+    filename = each.__str__()
+
     if each.parent().exists():
         pass
     else:
@@ -55,17 +67,19 @@ for each in filter(lambda p: p[-1].endswith('.py'), yapypy.collect()):
         mod = ast.parse(fr.read())
         collector.visit(mod)
 
+
     suites = []
 
-    filename = each.__str__()
     mod_name, _ = splitext(each.relative())
+
     for idx, (fn_name, (lineno, prepare_suites,
                         test_suites)) in enumerate(collector.docs.items()):
-
         context = {}
+        print(prepare_suites, test_suites)
+        prepare_code =  dedent_all('\n'.join(prepare_suites))
+
         try:
-            code = compile(
-                dedent_all('\n'.join(prepare_suites)), filename, "exec")
+            code = compile(prepare_code, filename, "exec")
         except SyntaxError as exc:
             exc.lineno = lineno
             exc.filename = filename
@@ -74,9 +88,11 @@ for each in filter(lambda p: p[-1].endswith('.py'), yapypy.collect()):
         bc.filename = filename
         bc.first_lineno = lineno
         exec(bc.to_code(), context)
+
+        test_code = dedent_all('\n'.join(test_suites))
+        print(test_code)
         try:
-            code = py_compile(
-                parse(dedent_all('\n'.join(prepare_suites))).result)
+            code = py_compile(parse(test_code).result)
         except SyntaxError as exc:
             exc.lineno = lineno
             exc.filename = filename
@@ -85,3 +101,5 @@ for each in filter(lambda p: p[-1].endswith('.py'), yapypy.collect()):
         bc.filename = filename
         bc.first_lineno = lineno
         exec(bc.to_code(), context)
+
+        print(f'{mod_name}.{fn_name} passed test')

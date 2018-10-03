@@ -475,6 +475,20 @@ def py_emit(node: ast.Attribute, ctx: Context):
     }[type(node.ctx)](node.attr, lineno=node.lineno))
 
 
+@py_emit.case(ast.Assert)
+def py_emit(node: ast.Assert, ctx: Context):
+    """
+    """
+    py_emit(node.test, ctx)
+    final = Label()
+    ctx.bc.append(Instr('POP_JUMP_IF_TRUE', final))
+    ctx.bc.append(Instr('LOAD_CONST', AssertionError, lineno=node.lineno))
+    py_emit(node.msg, ctx)
+    CALL_FUNCTION(1, lineno=node.lineno)
+    RAISE_VARARGS(1, lineno=node.lineno)
+    ctx.bc.append(final)
+
+
 @py_emit.case(ast.Yield)
 def py_emit(node: ast.Yield, ctx: Context):
     py_emit(node.value, ctx)

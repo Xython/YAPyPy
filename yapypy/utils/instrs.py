@@ -8,8 +8,17 @@ def LOAD_ATTR(attr: str, *, lineno=None):
 def STORE_ATTR(attr: str, *, lineno=None):
     return Instr('STORE_ATTR', attr, lineno=lineno)
 
+
 def DELETE_ATTR(attr: str, *, lineno=None):
     return Instr('DELETE_ATTR', attr, lineno=lineno)
+
+
+def CALL_FUNCTION(n: int, *, lineno=None):
+    return Instr('CALL_FUNCTION', n, lineno=lineno)
+
+
+def RAISE_VARARGS(n: int, lineno=None):
+    return Instr('RAISE_VARARGS', n, lineno=lineno)
 
 
 def LOAD_CONST(var: object, *, lineno=None):
