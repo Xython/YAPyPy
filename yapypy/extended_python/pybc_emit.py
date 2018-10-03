@@ -274,7 +274,7 @@ def py_emit(node: ast.Set, ctx: Context):
     
     test:
     >>> {1,2,3,4}
-    >>> {233,'233',{1}}
+    >>> {233,'233'}
     """
     elts = node.elts
     n = 0
