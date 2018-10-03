@@ -1,4 +1,5 @@
 import ast
+import pytest
 from yapypy.extended_python.pybc_emit import py_compile
 from yapypy.extended_python.parser import parse
 from Redy.Tools.PathLib import Path
@@ -54,48 +55,54 @@ class DocStringsCollector(ast.NodeVisitor):
     visit_FunctionDef = _visit_fn
 
 
-for each in filter(lambda p: p[-1].endswith('.py'), yapypy.collect()):
-    filename = each.__str__()
+class Test(unittest.TestCase):
+    @pytest.fixture(autouse=True)
+    def test_all(self):
+        for each in filter(lambda p: p[-1].endswith('.py'), yapypy.collect()):
+            filename = each.__str__()
 
-    if each.parent().exists():
-        pass
-    else:
-        each.parent().mkdir()
+            if each.parent().exists():
+                pass
+            else:
+                each.parent().mkdir()
 
-    with each.open('r') as fr:
-        collector = DocStringsCollector()
-        mod = ast.parse(fr.read())
-        collector.visit(mod)
+            with each.open('r') as fr:
+                collector = DocStringsCollector()
+                mod = ast.parse(fr.read())
+                collector.visit(mod)
 
-    suites = []
+            mod_name, _ = splitext(each.relative())
 
-    mod_name, _ = splitext(each.relative())
+            for idx, [fn_name, lineno, prepare_code,
+                      test_code] in enumerate(collector.docs):
 
-    for idx, [fn_name, lineno, prepare_code,
-              test_code] in enumerate(collector.docs):
-        prepare_code = dedent_all(prepare_code)
-        test_code = dedent_all(test_code)
-        context = {}
-        try:
-            code = compile(prepare_code, filename, "exec")
-        except SyntaxError as exc:
-            exc.lineno = lineno
-            exc.filename = filename
-            raise exc
-        bc = Bytecode.from_code(code)
-        bc.filename = filename
-        bc.first_lineno = lineno
-        exec(bc.to_code(), context)
+                context = {'self': self}
+                prepare_code = dedent_all(prepare_code)
+                test_code = dedent_all(test_code)
+                try:
+                    code = compile(prepare_code, filename, "exec")
+                except SyntaxError as exc:
+                    exc.lineno = lineno
+                    exc.filename = filename
+                    raise exc
+                bc = Bytecode.from_code(code)
+                bc.filename = filename
+                bc.first_lineno = lineno
+                exec(bc.to_code(), context)
 
-        try:
-            code = py_compile(parse(test_code).result)
-        except SyntaxError as exc:
-            exc.lineno = lineno
-            exc.filename = filename
-            raise exc
-        bc = Bytecode.from_code(code)
-        bc.filename = filename
-        bc.first_lineno = lineno
-        exec(bc.to_code(), context)
+                try:
+                    code = py_compile(parse(test_code).result)
+                except SyntaxError as exc:
+                    exc.lineno = lineno
+                    exc.filename = filename
+                    raise exc
+                bc = Bytecode.from_code(code)
+                bc.filename = filename
+                bc.first_lineno = lineno
+                exec(bc.to_code(), context)
 
-        print(f'{mod_name}.{fn_name} passed test')
+                print(f'{mod_name}.{fn_name} passed test')
+
+
+if __name__ == '__main__':
+    unittest.main()

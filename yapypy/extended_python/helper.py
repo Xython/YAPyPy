@@ -20,6 +20,7 @@ class ExprContextFixer(ast.NodeVisitor):
     visit_Tuple = _store_recursively
     visit_List = _store_recursively
     visit_ExDict = _store_recursively
+    visit_Starred = _store_recursively
 
 
 _fix_store = ExprContextFixer(ast.Store()).visit

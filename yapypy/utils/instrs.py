@@ -25,6 +25,10 @@ def POP_JUMP_IF_TRUE(label: Label, lineno=None):
     return Instr('POP_JUMP_IF_TRUE', label, lineno=lineno)
 
 
+def UNPACK_EX(arg: int, lineno=None):
+    return Instr('UNPACK_EX', arg, lineno=lineno)
+
+
 def LOAD_GLOBAL(name: str, lineno=None):
     return Instr('LOAD_GLOBAL', name, lineno=lineno)
 

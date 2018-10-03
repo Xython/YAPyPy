@@ -222,8 +222,31 @@ def py_emit(node: ast.Delete, ctx: Context):
 @py_emit.case(ast.Tuple)
 def py_emit(node: ast.Tuple, ctx: Context):
     is_lhs = isinstance(node.ctx, ast.Store)
-    if any(isinstance(each, ast.Starred) for each in node.elts):
-        raise NotImplemented
+
+    star_indices = [
+        idx for idx, each in enumerate(node.elts)
+        if isinstance(each, ast.Starred)
+    ]
+    if star_indices:
+        elts = node.elts
+        n = len(elts)
+        if len(star_indices) is not 1:
+            exc = SyntaxError()
+            exc.lineno = node.lineno
+            exc.msg = f'{len(star_indices)} starred expressions in assignment'
+            raise exc
+        star_idx = star_indices[0]
+        n_right = n - star_idx - 1
+        n_left = star_idx
+        unpack_arg = n_left + 256 * n_right
+        ctx.bc.append(UNPACK_EX(unpack_arg, lineno=node.lineno))
+        for i in range(0, star_idx):
+            py_emit(elts[i], ctx)
+        starred: ast.Starred = elts[star_idx]
+        py_emit(starred.value, ctx)
+        for i in range(star_idx + 1, n):
+            py_emit(elts[i])
+
     if is_lhs:
         UNPACK_SEQUENCE(len(node.elts), lineno=node.lineno)
         for each in node.elts:
