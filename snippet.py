@@ -31,15 +31,39 @@ def f(x):
 
 res: Tag = to_tagged_ast(stmt)
 print(res.tag.show_resolution())
-
+#
 stmt = parse("""
-print({1: 2 for i in range(2)})    
+print({1: 2 for i in range(2)})
 """).result
 
-
-dis.dis(py_compile(stmt))
-
+code = py_compile(stmt)
+exec(code)
 try:
     parse_expr('f(a=1, b)\n')
 except SyntaxError:
     print('good')
+#
+# from bytecode import Bytecode, Instr, Label
+# bc = Bytecode()
+# bc.append(Instr("BUILD_MAP", 0))
+# bc.append(Instr("LOAD_GLOBAL", "range"))
+# bc.append(Instr("LOAD_CONST", 2))
+# bc.append(Instr("CALL_FUNCTION", 1, lineno=2))
+#
+# l1 = Label()
+# l2 = Label()
+# bc.append(Instr("GET_ITER"))
+# bc.append(l1)
+# bc.append(Instr("FOR_ITER", l2))
+# bc.append(Instr("STORE_FAST", "i"))
+# bc.append(Instr("LOAD_CONST", 2))
+# bc.append(Instr("LOAD_CONST", 1, lineno=1))
+# bc.append(Instr("MAP_ADD", 2))
+# bc.append(Instr("JUMP_ABSOLUTE", l1))
+# bc.append(l2)
+# bc.append(Instr("RETURN_VALUE", ))
+#
+# code = bc.to_code()
+# print(eval(code))
+# dis.show_code(code)
+# dis.dis(code)

@@ -53,7 +53,7 @@ testlist_star_expr ::= seq<<(test|star_expr) (',' seq<<(test|star_expr))* [force
 augassign   ::= it=('+=' | '-=' | '*=' | '@=' | '/=' | '%=' | '&=' | '|=' | '^=' |                            # ------------------------------
                     '<<=' | '>>=' | '**=' | '//=')                                                            -> augassign_rewrite(it)
 # For normal and annotated assignments, additional restrictions enforced by the interpreter                   -------------------------------
-del_stmt   ::= mark='del' lst=exprlist                                                                         -> Delete([as_del(elt) for elt in lst], **loc @ mark)
+del_stmt   ::= mark='del' lst=exprlist                                                                        -> Delete([as_del(lst)], **loc @ mark)
 pass_stmt  ::= mark='pass'                                                                                    -> Pass(**loc @ mark)
 flow_stmt  ::= it=(break_stmt | continue_stmt | return_stmt | raise_stmt | yield_stmt)                        -> it
 break_stmt ::= mark='break'                                                                                   -> Break(**loc @ mark)

@@ -105,6 +105,14 @@ def JUMP_ABSOLUTE(label: Label, *, lineno=None):
     return Instr("JUMP_ABSOLUTE", label, lineno=lineno)
 
 
+def GET_ITER(*, lineno=None):
+    return Instr("GET_ITER", lineno=lineno)
+
+
+def POP_JUMP_IF_FALSE(label: Label, *, lineno=None):
+    return Instr("POP_JUMP_IF_FALSE", label, lineno=lineno)
+
+
 def DUP_TOP(*, lineno=None):
     return Instr('DUP_TOP', lineno=lineno)
 

@@ -1184,6 +1184,8 @@ def py_emit(node: ast.Compare, ctx: Context):
     >>> 1 in range(2)
     >>> 1 not in range(3)
     >>> 1 == 1 != 2 > 1 >= 1 < 2 <= 2 is 2 is not 3 in range(3) not in range(3)
+    >>> x = 3
+    >>> assert 2 < x < 5
     """
     ops = {
         ast.Eq: Compare.EQ,
@@ -1284,6 +1286,7 @@ def py_emit(node: ast.If, ctx: Context):
     >>> a, b, c, d = (0, 0, 0, 7)
     >>> if a:
     >>>     x = a
+    >>>     x = a
     >>> elif b:
     >>>     x = b
     >>> elif c:
@@ -1382,22 +1385,41 @@ def py_emit(node: ast.DictComp, ctx: Context):
     title: dictcomp
     test:
     >>> print({1: 2 for i in range(10)})
-    >>> print({i: j for i in range(2) for j in range(3)})
+    >>> assert {i:i for i in range(10) if i % 2 if i > 6 } == {7:7, 9:9}
+    >>> assert {i:j for i in range(10) if i < 8 for j in  range(5) if i % 2 if i > 6 } == {7: 4}
+    where this
+    ```
+        assert {i:j for i in range(10) if 3 < i < 8 for j in  range(5) if i % 2 if i > 6 } == {7: 4}
+    ```
+    would fail now
     """
-    ctx.bc.append(Instr('BUILD_MAP', 0))
+    ctx.bc.argnames.append('.0')
+    ctx.bc.argcount = 1
+    ctx.bc.append(Instr('BUILD_MAP', 0, lineno=node.lineno))
     parent = ctx.parent
+    first_iter: ast.expr
     labels = []
-    for each in node.generators:
+    for idx, each in enumerate(node.generators):
+        pair = begin_label, end_label = Label(), Label()
+
         if each.is_async:
             raise NotImplemented
-
-        pair = begin_label, end_label = Label(), Label()
-        labels.append(pair)
-        py_emit(each.iter, ctx)
-        ctx.bc.append(Instr('FOR_ITER', end_label))
-        ctx.bc.append(begin_label)
-        ctx.bc.append(Instr('GET_ITER'))
-        py_emit(each.target, ctx)
+        else:
+            labels.append(pair)
+            if idx:
+                py_emit(each.iter, ctx)
+                ctx.bc.append(Instr('GET_ITER', lineno=node.lineno))
+            else:
+                first_iter = each.iter
+                ctx.bc.append(LOAD_FAST(".0", lineno=node.lineno))
+            ctx.bc.append(begin_label)
+            ctx.bc.append(Instr('FOR_ITER', end_label, lineno=node.lineno))
+            py_emit(each.target, ctx)
+            if each.ifs:
+                for if_expr in each.ifs:
+                    py_emit(if_expr, ctx)
+                    ctx.bc.append(
+                        POP_JUMP_IF_FALSE(begin_label, lineno=node.lineno))
 
     py_emit(node.value, ctx)
     py_emit(node.key, ctx)
@@ -1406,20 +1428,19 @@ def py_emit(node: ast.DictComp, ctx: Context):
 
     while labels:
         begin_label, end_label = labels.pop()
+        ctx.bc.append(JUMP_ABSOLUTE(begin_label, lineno=node.lineno))
         ctx.bc.append(end_label)
-        ctx.bc.append(JUMP_ABSOLUTE(begin_label))
 
-    ctx.bc.append(RETURN_VALUE())
+    ctx.bc.append(RETURN_VALUE(lineno=node.lineno))
     flags = 0x08 if ctx.sym_tb.freevars else 0
     if flags & 0x08:
         ctx.load_closure()
 
     inner_code = ctx.bc.to_code()
-    dis.show_code(inner_code)
-    dis.dis(inner_code)
-    print('+++++++++++++++++++++++++++++++++++++++++++++++++')
     # dis.dis(inner_code)
     parent.bc.append(LOAD_CONST(inner_code))
     parent.bc.append(LOAD_CONST(f'{ctx.bc.name}.<locals>.<dictcomp>'))
     parent.bc.append(MAKE_FUNCTION(flags))
-    parent.bc.append(CALL_FUNCTION(0))
+    py_emit(first_iter, parent)
+    parent.bc.append(GET_ITER())
+    parent.bc.append(CALL_FUNCTION(1))

@@ -177,18 +177,33 @@ def visit_suite(visit_fn, suite: list):
 
 def _visit_list_set_gen_comp(self: 'ASTTagger', node: ast.ListComp):
     new = self.symtable.enter_new()
+    new.entered.add('.0')
     new_tagger = ASTTagger(new)
     node.elt = new_tagger.visit(node.elt)
-    node.generators = [new_tagger.visit(each) for each in node.generators]
+    head, *tail = node.generators
+    head.iter = self.visit(head.iter)
+    head.target = new_tagger.visit(head.target)
+    if head.ifs:
+        head.ifs = [new_tagger.visit(each) for each in head.ifs]
+
+    node.generators = [head, *[new_tagger.visit(each) for each in tail]]
     return Tag(node, new)
 
 
 def _visit_dict_comp(self: 'ASTTagger', node: ast.DictComp):
     new = self.symtable.enter_new()
+    new.entered.add('.0')
     new_tagger = ASTTagger(new)
     node.key = new_tagger.visit(node.key)
     node.value = new_tagger.visit(node.value)
-    node.generators = [new_tagger.visit(each) for each in node.generators]
+
+    head, *tail = node.generators
+    head.iter = self.visit(head.iter)
+    head.target = new_tagger.visit(head.target)
+    if head.ifs:
+        head.ifs = [new_tagger.visit(each) for each in head.ifs]
+    node.generators = [head, *[new_tagger.visit(each) for each in tail]]
+
     return Tag(node, new)
 
 
