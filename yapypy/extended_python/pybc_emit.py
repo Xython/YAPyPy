@@ -816,10 +816,10 @@ def py_emit(node: ast.Await, ctx: Context):
         >>> sleep(0.2)
         >>> assert future.result() ==  42
         """
-    if ctx.bc.flags | CompilerFlags.ASYNC_GENERATOR:
+    if not (ctx.bc.flags & CompilerFlags.ASYNC_GENERATOR):
         exc = SyntaxError()
         exc.lineno = node.lineno
-        exc.msg = 'yield from in async function.'
+        exc.msg = 'await outside async function.'
         raise exc
     ctx.bc.flags |= CompilerFlags.GENERATOR
     append = ctx.bc.append
