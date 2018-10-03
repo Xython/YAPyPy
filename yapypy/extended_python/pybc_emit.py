@@ -285,10 +285,9 @@ def py_emit(node: ast.Tuple, ctx: Context):
     >>> x, *y, z, t = 2, 3, 5, 5
     >>> assert t == 5
     >>> print((t, *(1, 2, 3)))
-    >>>
-
+    >>> del (x, y, z, t)
     """
-    is_lhs = isinstance(node.ctx, ast.Store)
+    expr_ctx = type(node.ctx)
 
     star_indices = [
         idx for idx, each in enumerate(node.elts)
@@ -297,7 +296,13 @@ def py_emit(node: ast.Tuple, ctx: Context):
     if star_indices:
         elts = node.elts
         n = len(elts)
-        if is_lhs:
+        if expr_ctx is ast.Del:
+            exc = SyntaxError()
+            exc.msg = "try to delete starred expression."
+            exc.lineno = node.lineno
+            raise exc
+
+        if expr_ctx is ast.Store:
             if len(star_indices) is not 1:
                 exc = SyntaxError()
                 exc.lineno = node.lineno
@@ -307,8 +312,8 @@ def py_emit(node: ast.Tuple, ctx: Context):
             n_right = n - star_idx - 1
             n_left = star_idx
             unpack_arg = n_left + 256 * n_right
-            if is_lhs:
-                ctx.bc.append(UNPACK_EX(unpack_arg, lineno=node.lineno))
+            ctx.bc.append(UNPACK_EX(unpack_arg, lineno=node.lineno))
+
             for i in range(0, star_idx):
                 py_emit(elts[i], ctx)
             starred: ast.Starred = elts[star_idx]
@@ -316,7 +321,7 @@ def py_emit(node: ast.Tuple, ctx: Context):
             for i in range(star_idx + 1, n):
                 py_emit(elts[i], ctx)
         else:
-            intervals = [*star_indices, n-1][::-1]
+            intervals = [*star_indices, n - 1][::-1]
             last = 0
             num = 0
             while intervals:
@@ -332,8 +337,11 @@ def py_emit(node: ast.Tuple, ctx: Context):
             ctx.bc.append(BUILD_TUPLE_UNPACK(num))
         return
 
-    if is_lhs:
+    if expr_ctx is ast.Store:
         ctx.bc.append(UNPACK_SEQUENCE(len(node.elts), lineno=node.lineno))
+        for each in node.elts:
+            py_emit(each, ctx)
+    elif expr_ctx is ast.Del:
         for each in node.elts:
             py_emit(each, ctx)
     else:
