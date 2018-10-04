@@ -8,7 +8,7 @@ import ast
 from astpretty import pprint
 from yapypy.extended_python.parser import parse
 from yapypy.extended_python.symbol_analyzer import ASTTagger, SymTable, to_tagged_ast, Tag
-from yapypy.extended_python.pybc_emit import py_compile
+from yapypy.extended_python.py_compile import py_compile
 import dis
 
 

@@ -1,3 +1,5 @@
+from bytecode import BasicBlock
+
 from yapypy.extended_python.pybc_emit import *
 
 
@@ -119,3 +121,22 @@ def py_emit(node: ast.If, ctx: Context):
             ctx.bc.append(out_label)
         else:
             ctx.bc.append(else_lable)
+
+
+@py_emit.case(ast.While)
+def py_emit(node: ast.While, ctx: Context):
+    bb_label = Label()
+    ctx.bc.append(Instr("SETUP_LOOP", bb_label, lineno=node.lineno))
+    absolute_label = Label()
+    ctx.bc.append(absolute_label)
+    py_emit(node.test,ctx)
+    while_label = Label()
+    ctx.bc.append(POP_JUMP_IF_FALSE(while_label,lineno=node.lineno))
+    for expr in node.body:
+        py_emit(expr,ctx)
+
+    ctx.bc.append(Instr("JUMP_ABSOLUTE",absolute_label,lineno=node.lineno))
+    ctx.bc.append(while_label)
+    ctx.bc.append(POP_BLOCK(lineno=node.lineno))
+    ctx.bc.append(bb_label)
+
