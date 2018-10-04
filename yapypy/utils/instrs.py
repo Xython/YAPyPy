@@ -129,6 +129,10 @@ def JUMP_IF_FALSE_OR_POP(label: Label, *, lineno=None):
     return Instr("JUMP_IF_FALSE_OR_POP", label, lineno=lineno)
 
 
+def SETUP_LOOP(label: Label, *, lineno=None):
+    return Instr("SETUP_LOOP", label, lineno=lineno)
+
+
 def DUP_TOP(*, lineno=None):
     return Instr('DUP_TOP', lineno=lineno)
 
