@@ -90,6 +90,8 @@ class Test(unittest.TestCase):
             for idx, [fn_name, lineno, title, prepare_code,
                       test_code] in enumerate(collector.docs):
 
+                print(f'tests of {mod_name}.{title or fn_name} started...')
+
                 context = {'self': self}
                 prepare_code = dedent_all(prepare_code)
                 test_code = dedent_all(test_code)
@@ -124,7 +126,7 @@ class Test(unittest.TestCase):
                 bc.first_lineno = lineno
                 exec(bc.to_code(), context)
 
-                print(f'{mod_name}.{title or fn_name} passed test')
+                print(f'tests of {mod_name}.{title or fn_name} passed.')
 
 
 if __name__ == '__main__':
