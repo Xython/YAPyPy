@@ -169,7 +169,7 @@ class DictComp(AST):
     value: typing.Union[Name, Attribute]
     lineno: typing.Union[int]
     col_offset: typing.Union[int]
-    generators: typing.List[typing.Union[typing.Union[comprehension]]]
+    generators: typing.List[comprehension]
     key: typing.Union[Name]
 
 

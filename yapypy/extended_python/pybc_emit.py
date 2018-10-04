@@ -1,6 +1,11 @@
 import ast
+import dis
+import sys
 import typing
 from typing import NamedTuple
+
+from astpretty import pprint
+
 import yapypy.extended_python.extended_ast as ex_ast
 
 from yapypy.extended_python.symbol_analyzer import SymTable, Tag, to_tagged_ast
@@ -37,7 +42,7 @@ class Context(INamedList, metaclass=trait(as_namedlist)):
     def enter_new(self, tag_table: SymTable):
         sym_tb = IndexedAnalyzedSymTable.from_raw(tag_table)
         bc = Bytecode()
-        bc.flags |= CompilerFlags.NEWLOCALS
+        bc.flags |= CompilerFlags.NEWLOCALS  # TODO
         if tag_table.depth > 1:
             bc.flags |= CompilerFlags.NESTED
 
@@ -47,7 +52,7 @@ class Context(INamedList, metaclass=trait(as_namedlist)):
             bc.freevars.extend(sym_tb.freevars)
 
         bc.cellvars.extend(sym_tb.cellvars)
-        return self.update(parent=self, bc=Bytecode(), sym_tb=sym_tb)
+        return self.update(parent=self, bc=bc, sym_tb=sym_tb)
 
     def load_name(self, name, lineno=None):
         sym_tb = self.sym_tb
@@ -107,6 +112,7 @@ def py_compile(node, filename='<unknown>'):
         except SyntaxError as exc:
             exc.filename = filename
             raise exc
+
         return ctx.bc.to_code()
     else:
         tag = to_tagged_ast(node)
@@ -130,6 +136,165 @@ def py_emit(node: ast.Module, ctx: Context):
         py_emit(each, ctx)
     ctx.bc.append(Instr('LOAD_CONST', None))
     ctx.bc.append(Instr('RETURN_VALUE'))
+
+
+@py_emit.case(ast.Subscript)
+def py_emit(node: ast.Subscript, ctx: Context):
+    """
+    title: subscript
+    test:
+
+    >>> x = {1: 2, (3,  4): 10}
+    >>> assert x[1] == 2
+    >>> assert  x[3, 4] == 10
+    >>> del x[1]
+    >>> del x[3, 4]
+    >>> assert not x
+    >>> x = [1, 2, 3]
+    >>> x[:2] = [2, 3]
+    >>> assert x[:2] == [2, 3]
+    >>> x[:] = []
+    >>> assert not x
+    >>> x.append(1)
+    >>> x += [2, 3, 4]
+    >>> del x[:2]
+    >>> assert len(x) = 2
+    >>> class S:
+    >>>     def __getitem__(self, i):
+    >>>        if i == (slice(1, 2, None), slice(2, 3, -1)):
+    >>>             return 42
+    >>>        raise ValueError
+    >>> assert S()[1:2, 2:3:-1] == 42
+
+    """
+    expr_context_ty = type(node.ctx)
+    py_emit(node.value, ctx)
+
+    if sys.version_info >= (3, 8):
+        # See https://github.com/python/cpython/pull/9605
+        py_emit(node.slice, ctx)
+    else:
+        py_emit(node.slice.value, ctx)
+
+    ctx.bc.append({
+        ast.Del: DELETE_SUBSCR,
+        ast.Store: STORE_SUBSCR,
+        ast.Load: BINARY_SUBSCR
+    }[expr_context_ty](lineno=node.lineno))
+
+
+@py_emit.case(ast.NameConstant)
+def py_emit(node: ast.NameConstant, ctx: Context):
+    """
+    title: named constant
+    test:
+    >>> x = True
+    >>> x = None
+    >>> x = False
+    """
+    ctx.bc.append(LOAD_CONST(node.value, lineno=node.lineno))
+
+
+@py_emit.case(ast.Slice)
+def py_emit(node: ast.Slice, ctx: Context):
+    """
+    see more test cases for Subscript
+    title: slice
+    test:
+    >>> x = [1, 2, 3]
+    >>> assert x[::-1] == [3, 2, 1]
+    >>> assert x[::-2] == [3, 1]
+    >>> assert x[:1:-1] ==  [3]
+    >>> assert x[:0:-1] == [3, 2]
+    >>> assert x[1:2:1] == [2]
+    >>> class S:
+    >>>    def __getitem__(self, item):
+    >>>         if item == (1, slice(2, 3, None)): return 1
+    >>>         elif item == (slice(None, 3, 2), 2): return 2
+    >>> assert x[1, 2:3] == 1
+    >>> assert x[:3:2, 2] == 2
+
+
+    """
+    slices = [node.lower, node.upper, node.step]
+    if not any(slices):
+        ctx.bc.append(LOAD_CONST(None))
+        ctx.bc.append(LOAD_CONST(None))
+        ctx.bc.append(BUILD_SLICE(2))
+
+        return
+
+    n = max([i for i, piece in enumerate(slices) if piece is not None]) + 1
+    for each in slices[:n]:
+        if not each:
+            ctx.bc.append(LOAD_CONST(None))
+        else:
+            py_emit(each, ctx)
+    ctx.bc.append(BUILD_SLICE(n))
+
+
+@py_emit.case(ast.AugAssign)
+def py_emit(node: ast.AugAssign, ctx: Context):
+    """
+    title: aug_assign
+    test:
+    >>> x = 1
+    >>> x += 1
+    >>> assert  x == 2
+    >>> x = [1, 2, 3]
+    >>> x[1 + 1] += 2
+    >>> assert x[1 + 1]== 5
+    >>> class S: pass
+    >>> s = S()
+    >>> s.x = 1
+    >>> s.x += 1
+    >>> assert s.x == 2
+    >>> def f(a={}): return a
+    >>> f()['a'] = 1
+    >>> f()['a'] *= 2
+    >>> assert f()['a'] == 2
+    """
+
+    def lhs_to_rhs(instr: Instr):
+        opname = {
+            'STORE_SUBSCR': 'BINARY_SUBSCR',
+            'STORE_FAST': 'LOAD_FAST',
+            'STORE_DEREF': 'LOAD_DEREF',
+            'STORE_GLOBAL': 'LOAD_GLOBAL',
+            'STORE_NAME': 'LOAD_NAME',
+            'STORE_ATTR': 'LOAD_ATTR'
+        }[instr.name]
+        return Instr(opname, instr.arg, lineno=instr.lineno)
+
+    py_emit(node.target, ctx)
+    to_move: Instr = ctx.bc.pop()
+    is_composed = isinstance(node.target, (ast.Attribute, ast.Subscript))
+    if is_composed:
+        ctx.bc.append(DUP_TOP_TWO())
+
+    ctx.bc.append(lhs_to_rhs(to_move))
+    py_emit(node.value, ctx)
+    ctx.bc.append(
+        Instr(
+            {
+                ast.Add: "INPLACE_ADD",
+                ast.BitAnd: "INPLACE_AND",
+                ast.Sub: "INPLACE_SUBTRACT",
+                ast.Div: "INPLACE_TRUE_DIVIDE",
+                ast.FloorDiv: "INPLACE_FLOOR_DIVIDE",
+                ast.LShift: "INPLACE_LSHIFT",
+                ast.RShift: "INPLACE_RSHIFT",
+                ast.MatMult: "INPLACE_MATRIX_MULTIPLY",
+                ast.Pow: "INPLACE_POWER",
+                ast.BitOr: "INPLACE_OR",
+                ast.BitXor: "INPLACE_XOR",
+                ast.Mult: "INPLACE_MULTIPLY",
+                ast.Mod: "INPLACE_MODULO"
+            }[type(node.op)],
+            lineno=node.lineno))
+    if is_composed:
+        ctx.bc.append(ROT_THREE(lineno=node.lineno))
+    ctx.bc.append(to_move)
 
 
 @py_emit.case(ast.Str)
@@ -947,11 +1112,8 @@ def py_emit(node: ast.BinOp, ctx: Context):
         ast.BitXor: "BINARY_XOR",
         ast.Mult: "BINARY_MULTIPLY",
         ast.Mod: "BINARY_MODULO"
-    }.get(type(node.op))
-    if inst:
-        ctx.bc.append(Instr(inst, lineno=node.lineno))
-    else:
-        raise TypeError
+    }[type(node.op)]
+    ctx.bc.append(Instr(inst, lineno=node.lineno))
 
 
 @py_emit.case(ast.BoolOp)
@@ -1038,6 +1200,8 @@ def py_emit(node: ast.Compare, ctx: Context):
     >>> 1 in range(2)
     >>> 1 not in range(3)
     >>> 1 == 1 != 2 > 1 >= 1 < 2 <= 2 is 2 is not 3 in range(3) not in range(3)
+    >>> x = 3
+    >>> assert 2 < x < 5
     """
     ops = {
         ast.Eq: Compare.EQ,
@@ -1067,18 +1231,16 @@ def py_emit(node: ast.Compare, ctx: Context):
 
             py_emit(expr, ctx)
             if idx == last_idx_of_comparators:
-                ctx.bc.append(
-                    Instr("JUMP_FORWARD", label_out, lineno=node.lineno))
+                ctx.bc.append(Instr("COMPARE_OP", op, lineno=node.lineno))
+                ctx.bc.append(JUMP_FORWARD(label_out, lineno=node.lineno))
             else:
                 ctx.bc.append(DUP_TOP(lineno=node.lineno))
-                ctx.bc.append(Instr("ROT_THREE", lineno=node.lineno))
+                ctx.bc.append(ROT_THREE(lineno=node.lineno))
                 ctx.bc.append(Instr("COMPARE_OP", op, lineno=node.lineno))
-                ctx.bc.append(
-                    Instr(
-                        "JUMP_IF_FALSE_OR_POP", label_rot, lineno=node.lineno))
+                ctx.bc.append(JUMP_IF_FALSE_OR_POP(label_rot, lineno=node.lineno))
 
         ctx.bc.append(label_rot)
-        ctx.bc.append(Instr("ROT_TWO", lineno=node.lineno))
+        ctx.bc.append(ROT_THREE(lineno=node.lineno))
         ctx.bc.append(POP_TOP(lineno=node.lineno))
         ctx.bc.append(label_out)
     else:
@@ -1138,6 +1300,7 @@ def py_emit(node: ast.If, ctx: Context):
     >>> a, b, c, d = (0, 0, 0, 7)
     >>> if a:
     >>>     x = a
+    >>>     x = a
     >>> elif b:
     >>>     x = b
     >>> elif c:
@@ -1152,7 +1315,10 @@ def py_emit(node: ast.If, ctx: Context):
     """
 
     is_const = False
-    kinds = [ast.Constant, ast.Num, ast.Str, ast.Bytes, ast.Ellipsis, ast.NameConstant]
+    kinds = [
+        ast.Constant, ast.Num, ast.Str, ast.Bytes, ast.Ellipsis,
+        ast.NameConstant
+    ]
     is_const = any([isinstance(node.test, kind) for kind in kinds])
     if isinstance(node.test, ast.Name):
         if node.test.id == "__debug__":
@@ -1187,7 +1353,8 @@ def py_emit(node: ast.If, ctx: Context):
         out_label = Label()
         else_lable = Label()
         py_emit(node.test, ctx)
-        ctx.bc.append(Instr("POP_JUMP_IF_FALSE", else_lable, lineno=node.lineno))
+        ctx.bc.append(
+            Instr("POP_JUMP_IF_FALSE", else_lable, lineno=node.lineno))
         for each in node.body:
             py_emit(each, ctx)
         has_orelse = False
@@ -1201,3 +1368,130 @@ def py_emit(node: ast.If, ctx: Context):
             ctx.bc.append(out_label)
         else:
             ctx.bc.append(else_lable)
+
+
+@py_emit.case(ast.DictComp)
+def py_emit(node: ast.DictComp, ctx: Context):
+    """
+    title: dictcomp
+    test:
+    >>> print({1: 2 for i in range(10)})
+    >>> assert {i:i for i in range(10) if i % 2 if i > 6 } == {7:7, 9:9}
+    >>> assert {i:j for i in range(10) if i < 8 for j in  range(5) if i % 2 if i > 6 } == {7: 4}
+    where this
+    ```
+        assert {i:j for i in range(10) if 3 < i < 8 for j in  range(5) if i % 2 if i > 6 } == {7: 4}
+    ```
+    would fail now
+    """
+    ctx.bc.argnames.append('.0')
+    ctx.bc.argcount = 1
+    ctx.bc.append(Instr('BUILD_MAP', 0, lineno=node.lineno))
+    parent = ctx.parent
+    first_iter: ast.expr
+    labels = []
+    for idx, each in enumerate(node.generators):
+        pair = begin_label, end_label = Label(), Label()
+
+        if each.is_async:
+            raise NotImplemented
+        else:
+            labels.append(pair)
+            if idx:
+                py_emit(each.iter, ctx)
+                ctx.bc.append(Instr('GET_ITER', lineno=node.lineno))
+            else:
+                first_iter = each.iter
+                ctx.bc.append(LOAD_FAST(".0", lineno=node.lineno))
+            ctx.bc.append(begin_label)
+            ctx.bc.append(Instr('FOR_ITER', end_label, lineno=node.lineno))
+            py_emit(each.target, ctx)
+            if each.ifs:
+                for if_expr in each.ifs:
+                    py_emit(if_expr, ctx)
+                    ctx.bc.append(
+                        POP_JUMP_IF_FALSE(begin_label, lineno=node.lineno))
+
+    py_emit(node.value, ctx)
+    py_emit(node.key, ctx)
+
+    ctx.bc.append(Instr('MAP_ADD', len(node.generators) + 1))
+
+    while labels:
+        begin_label, end_label = labels.pop()
+        ctx.bc.append(JUMP_ABSOLUTE(begin_label, lineno=node.lineno))
+        ctx.bc.append(end_label)
+
+    ctx.bc.append(RETURN_VALUE(lineno=node.lineno))
+    flags = 0x08 if ctx.sym_tb.freevars else 0
+    if flags & 0x08:
+        ctx.load_closure()
+
+    inner_code = ctx.bc.to_code()
+    # dis.dis(inner_code)
+    parent.bc.append(LOAD_CONST(inner_code))
+    parent.bc.append(LOAD_CONST(f'{ctx.bc.name}.<locals>.<dictcomp>'))
+    parent.bc.append(MAKE_FUNCTION(flags))
+    py_emit(first_iter, parent)
+    parent.bc.append(GET_ITER())
+    parent.bc.append(CALL_FUNCTION(1))
+
+
+@py_emit.case(ast.SetComp)
+def py_emit(node: ast.SetComp, ctx: Context):
+    """
+    title SetComp
+    test:
+    >>> print({ 2 for i in range(10)})
+    >>> assert {i for i in range(10) if i % 2 if i > 6 } == { 7, 9 }
+    >>> assert {(i, j) for i in range(10) if i < 8 for j in  range(5) if i % 2 if i > 6 } == {(7, 3), (7, 0), (7, 1), (7, 4), (7, 2)}
+    """
+    ctx.bc.argnames.append('.0')
+    ctx.bc.argcount = 1
+    ctx.bc.append(Instr('BUILD_SET', 0))
+    parent = ctx.parent
+    first_iter: ast.expr
+    labels = []
+    for idx, each in enumerate(node.generators):
+        pair = begin_label, end_label = Label(), Label()
+        if each.is_async:
+            raise NotImplemented
+        else:
+            labels.append(pair)
+            if (idx):
+                py_emit(each.iter, ctx)
+                ctx.bc.append(GET_ITER(lineno=node.lineno))
+            else:
+                first_iter = each.iter
+                ctx.bc.append(Instr('LOAD_FAST', ".0", lineno=node.lineno))
+                ctx.bc.append(begin_label)
+            ctx.bc.append(begin_label)
+            ctx.bc.append(Instr('FOR_ITER', end_label, lineno=node.lineno))
+            py_emit(each.target, ctx)
+            if each.ifs:
+                for if_expr in each.ifs:
+                    py_emit(if_expr, ctx)
+                    ctx.bc.append(
+                        POP_JUMP_IF_FALSE(begin_label, lineno=node.lineno))
+
+    py_emit(node.elt, ctx)
+    ctx.bc.append(Instr('SET_ADD', len(node.generators) + 1))
+
+    while labels:
+        begin_label, end_label = labels.pop()
+        ctx.bc.append(JUMP_ABSOLUTE(begin_label, lineno=node.lineno))
+        ctx.bc.append(end_label)
+
+    ctx.bc.append(RETURN_VALUE(lineno=node.lineno))
+    flags = 0x08 if ctx.sym_tb.freevars else 0
+    if flags & 0x08:
+        ctx.load_closure()
+
+    inner_code = ctx.bc.to_code()
+    # dis.dis(inner_code)
+    parent.bc.append(LOAD_CONST(inner_code))
+    parent.bc.append(LOAD_CONST(f'{ctx.bc.name}.<locals>.<setcomp>'))
+    parent.bc.append(MAKE_FUNCTION(flags))
+    py_emit(first_iter, parent)
+    parent.bc.append(GET_ITER())
+    parent.bc.append(CALL_FUNCTION(1))

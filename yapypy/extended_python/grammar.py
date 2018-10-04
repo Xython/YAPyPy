@@ -53,7 +53,7 @@ testlist_star_expr ::= seq<<(test|star_expr) (',' seq<<(test|star_expr))* [force
 augassign   ::= it=('+=' | '-=' | '*=' | '@=' | '/=' | '%=' | '&=' | '|=' | '^=' |                            # ------------------------------
                     '<<=' | '>>=' | '**=' | '//=')                                                            -> augassign_rewrite(it)
 # For normal and annotated assignments, additional restrictions enforced by the interpreter                   -------------------------------
-del_stmt   ::= mark='del' lst=exprlist                                                                         -> Delete([as_del(elt) for elt in lst], **loc @ mark)
+del_stmt   ::= mark='del' lst=exprlist                                                                        -> Delete([as_del(lst)], **loc @ mark)
 pass_stmt  ::= mark='pass'                                                                                    -> Pass(**loc @ mark)
 flow_stmt  ::= it=(break_stmt | continue_stmt | return_stmt | raise_stmt | yield_stmt)                        -> it
 break_stmt ::= mark='break'                                                                                   -> Break(**loc @ mark)
@@ -165,18 +165,18 @@ testlist_comp  ::= values<<(test|star_expr) ( comp=comp_for | (',' values<<(test
 
 # `ExtSlice` is ignored here. We don't need this optimization for this project.
 trailer        ::=  arglist=arglist | mark='[' subscr=subscriptlist ']' | mark='.' attr=NAMESTR
-                    -> (lambda value: Slice(value, subscr, **loc @ mark))        if subscr  is not None else\
-                       (lambda value: Call(value, *split_args_helper(arglist)))  if arglist is not None else\
+                    -> (lambda value: Subscript(value, subscr, Load(), **loc @ mark)) if subscr  is not None else\
+                       (lambda value: Call(value, *split_args_helper(arglist)))       if arglist is not None else\
                        (lambda value: Attribute(value, attr, Load(), **loc @ mark))                       
                        
 # `Index` will be deprecated in Python3.8. 
 # See https://github.com/python/cpython/pull/9605#issuecomment-425381990                        
 subscriptlist  ::= head=subscript (',' tail << subscript)* [',']
                    ->  Index(head if not tail else Tuple([head, *tail], Load()))                                      
-subscript3     ::= [lower=test] ':' [upper=test] [':' [step=test]] -> Slice(lower, upper, step)                        
-subscript      ::= it=(test | subscript3) -> it
-exprlist       ::= seq << (expr|star_expr) (',' seq << (expr|star_expr))* [','] -> seq
-testlist       ::= seq << test (',' seq << test)* [force_tuple=','] -> Tuple(seq, Load()) if force_tuple or len(seq) > 1 else seq[0]
+subscript3     ::= [lower=test] subscr=[':' [upper=test] [':' [step=test]]] -> Slice(lower, upper, step) if subscr else lower      
+subscript      ::= it=(subscript3 | test) -> it
+exprlist       ::= seq << (expr|star_expr) (',' seq << (expr|star_expr))* [force_tuple=','] -> Tuple(seq, Load()) if force_tuple or len(seq) > 1 else seq[0]
+testlist       ::= seq << test (',' seq << test)* [force_tuple=',']                         -> Tuple(seq, Load()) if force_tuple or len(seq) > 1 else seq[0]
 
 dict_unpack_s  ::= '**' -> None                
 dictorsetmaker ::= (((keys<<test ':' values<<test | keys<<dict_unpack_s values<<expr)

@@ -73,8 +73,64 @@ def BUILD_SET(n: int, *, lineno=None):
     return Instr('BUILD_SET', n, lineno=lineno)
 
 
+def BUILD_SLICE(n: int, *, lineno=None):
+    return Instr('BUILD_SLICE', n, lineno=lineno)
+
+
+def STORE_SUBSCR(*, lineno=None):
+    return Instr('STORE_SUBSCR', lineno=lineno)
+
+
+def BINARY_SUBSCR(*, lineno=None):
+    return Instr('BINARY_SUBSCR', lineno=lineno)
+
+
+def DELETE_SUBSCR(*, lineno=None):
+    return Instr('DELETE_SUBSCR', lineno=lineno)
+
+
+def ROT_TWO(*, lineno=None):
+    return Instr('ROT_TWO', lineno=lineno)
+
+
+def ROT_THREE(*, lineno=None):
+    return Instr('ROT_THREE', lineno=lineno)
+
+
+def RETURN_VALUE(*, lineno=None):
+    return Instr('RETURN_VALUE', lineno=lineno)
+
+
+def MAKE_FUNCTION(n: int, *, lineno=None):
+    return Instr("MAKE_FUNCTION", n, lineno=lineno)
+
+
+def JUMP_ABSOLUTE(label: Label, *, lineno=None):
+    return Instr("JUMP_ABSOLUTE", label, lineno=lineno)
+
+
+def GET_ITER(*, lineno=None):
+    return Instr("GET_ITER", lineno=lineno)
+
+
+def POP_JUMP_IF_FALSE(label: Label, *, lineno=None):
+    return Instr("POP_JUMP_IF_FALSE", label, lineno=lineno)
+
+
+def JUMP_FORWARD(label: Label, *, lineno=None):
+    return Instr("JUMP_FORWARD", label, lineno=lineno)
+
+
+def JUMP_IF_FALSE_OR_POP(label: Label, *, lineno=None):
+    return Instr("JUMP_IF_FALSE_OR_POP", label, lineno=lineno)
+
+
 def DUP_TOP(*, lineno=None):
     return Instr('DUP_TOP', lineno=lineno)
+
+
+def DUP_TOP_TWO(*, lineno=None):
+    return Instr('DUP_TOP_TWO', lineno=lineno)
 
 
 def POP_TOP(*, lineno=None):

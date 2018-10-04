@@ -175,6 +175,38 @@ def visit_suite(visit_fn, suite: list):
     return [visit_fn(each) for each in suite]
 
 
+def _visit_list_set_gen_comp(self: 'ASTTagger', node: ast.ListComp):
+    new = self.symtable.enter_new()
+    new.entered.add('.0')
+    new_tagger = ASTTagger(new)
+    node.elt = new_tagger.visit(node.elt)
+    head, *tail = node.generators
+    head.iter = self.visit(head.iter)
+    head.target = new_tagger.visit(head.target)
+    if head.ifs:
+        head.ifs = [new_tagger.visit(each) for each in head.ifs]
+
+    node.generators = [head, *[new_tagger.visit(each) for each in tail]]
+    return Tag(node, new)
+
+
+def _visit_dict_comp(self: 'ASTTagger', node: ast.DictComp):
+    new = self.symtable.enter_new()
+    new.entered.add('.0')
+    new_tagger = ASTTagger(new)
+    node.key = new_tagger.visit(node.key)
+    node.value = new_tagger.visit(node.value)
+
+    head, *tail = node.generators
+    head.iter = self.visit(head.iter)
+    head.target = new_tagger.visit(head.target)
+    if head.ifs:
+        head.ifs = [new_tagger.visit(each) for each in head.ifs]
+    node.generators = [head, *[new_tagger.visit(each) for each in tail]]
+
+    return Tag(node, new)
+
+
 def _visit_fn_def(self: 'ASTTagger',
                   node: Union[ast.FunctionDef, ast.AsyncFunctionDef]):
 
@@ -239,6 +271,8 @@ class ASTTagger(ast.NodeTransformer):
     visit_FunctionDef = _visit_fn_def
     visit_AsyncFunctionDef = _visit_fn_def
     visit_Lambda = _visit_lam
+    visit_ListComp = visit_SetComp = visit_GeneratorExp = _visit_list_set_gen_comp
+    visit_DictComp = _visit_dict_comp
 
 
 def to_tagged_ast(node: ast.Module):

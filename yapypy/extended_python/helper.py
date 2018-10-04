@@ -160,14 +160,15 @@ def arith_expr_rewrite(head, tail):
 def term_rewrite(head, tail):
     if tail:
         for op, each in tail:
-            op = {
-                '*': ast.Mult,
-                '@': ast.MatMult,
-                '%': ast.Mod,
-                '//': ast.FloorDiv,
-                '/': ast.Div
-            }[op.value]()
-            head = ast.BinOp(head, op, each, **loc @ op)
+
+            head = ast.BinOp(
+                head, {
+                    '*': ast.Mult,
+                    '@': ast.MatMult,
+                    '%': ast.Mod,
+                    '//': ast.FloorDiv,
+                    '/': ast.Div
+                }[op.value](), each, **loc @ op)
     return head
 
 
@@ -298,7 +299,7 @@ def check_call_args(loc, seq: t.List[ast.expr]):
     return seq
 
 
-def atom_rewrite(loc, name, number, strs, ellipsis, namedc, dict, is_dict,
+def atom_rewrite(loc, name, number, strs, namedc, ellipsis, dict, is_dict,
                  is_gen, is_list, comp, yield_expr):
     if name:
         return ast.Name(name.value, ast.Load(), **loc @ name)
