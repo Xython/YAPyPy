@@ -14,24 +14,15 @@ def py_emit(node: ast.Set, ctx: Context):
     >>>
 
     test:
-    >>> assert {1,2} == {1,2}
-    >>> assert {1,*{2,3},*{3,4}} == {1,2,3,4}
-    >>> assert {1, *{2, 3, 4}, 6, *{6, 7}, 8} == {1, 2, 3, 4, 6, 7, 8}
+    >>> {1,2,3,4}
+    >>> {233,'233'}
     """
     elts = node.elts
-    starreds = [ ]
     n = 0
     for elt in elts:
-        if isinstance(elt,ast.Starred):
-            starreds += [elt]
-        else:
-            py_emit(elt, ctx)
-            n += 1
+        py_emit(elt, ctx)
+        n += 1
     ctx.bc.append(BUILD_SET(n, lineno=node.lineno))
-    for starred in starreds:
-        py_emit(starred.value, ctx)
-    ctx.bc.append(Instr("BUILD_SET_UNPACK",len(starreds) + 1
-                        ,lineno=node.lineno))
 
 
 @py_emit.case(ast.Str)
