@@ -7,15 +7,14 @@ def py_emit(node: ast.Tuple, ctx: Context):
     title: tuple
     test:
     >>> x = 1
-    >>> print((x, 2, 3))
+    >>> assert (x, 2, 3) == (1, 2, 3)
     >>> x, y = 2, 3
-    >>> print(x, y)
+    >>> assert (x , y) = (2, 3)
     >>> x, *y, z = 2, 3, 5
     >>> y, = y
     >>> assert x == 2  and  y == 3 and z == 5
     >>> x, *y, z, t = 2, 3, 5, 5
     >>> assert t == 5
-    >>> print( (1, *(2, 3, 4), 5, *(6, 7), 8) )
     >>> assert  (1, *(2, 3, 4), 5, *(6, 7), 8) == (1, 2, 3, 4, 5, 6, 7, 8)
     >>> del (x, y, z, t)
     """
@@ -98,7 +97,6 @@ def py_emit(node: ast.List, ctx: Context):
     >>> assert x == 2 and y == 3 and z == 5
     >>> [x, *y, z, t] = [2, 3, 5, 5]
     >>> assert t == 5
-    >>> print( [1, *[2, 3, 4], 5, *[6, 7], 8] )
     >>> assert  [1, *[2, 3, 4], 5, *[6, 7], 8] == [1, 2, 3, 4, 5, 6, 7, 8]
     >>> del [x, y, z, t]
     """
