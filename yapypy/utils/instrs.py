@@ -1,4 +1,4 @@
-from bytecode import Instr, Label
+from bytecode import Instr, Label, Compare
 
 
 def LOAD_ATTR(attr: str, *, lineno=None):
@@ -7,6 +7,38 @@ def LOAD_ATTR(attr: str, *, lineno=None):
 
 def STORE_ATTR(attr: str, *, lineno=None):
     return Instr('STORE_ATTR', attr, lineno=lineno)
+
+
+def GET_ANEXT(*, lineno=None):
+    return Instr("GET_ANEXT", lineno=lineno)
+
+
+def SETUP_EXCEPT(label: Label, *, lineno=None):
+    return Instr("SETUP_EXCEPT", label, lineno=lineno)
+
+
+def GET_AITER(*, lineno=None):
+    return Instr("GET_AITER", lineno=lineno)
+
+
+def GET_AWAITABLE(*, lineno=None):
+    return Instr("GET_AWAITABLE", lineno=lineno)
+
+
+def END_FINALLY(*, lineno=None):
+    return Instr("END_FINALLY", lineno=lineno)
+
+
+def COMPARE_OP(arg: Compare, *, lineno=None):
+    return Instr("COMPARE_OP", arg, lineno=lineno)
+
+
+def POP_EXCEPT(*, lineno=None):
+    return Instr("POP_EXCEPT", lineno=lineno)
+
+
+def YIELD_FROM(*, lineno=None):
+    return Instr("YIELD_FROM", lineno=lineno)
 
 
 def DELETE_ATTR(attr: str, *, lineno=None):

@@ -10,11 +10,13 @@ def py_emit(node: ast.YieldFrom, ctx: Context):
     >>>   yield from 1,
     >>> assert next(f()) == 1
     """
-    if ctx.bc.flags | CompilerFlags.ASYNC_GENERATOR:
+    flags = ctx.bc.flags
+    if flags & CompilerFlags.COROUTINE or flags & CompilerFlags.ASYNC_GENERATOR:
         exc = SyntaxError()
         exc.lineno = node.lineno
         exc.msg = 'yield from in async function.'
         raise exc
+
     ctx.bc.flags |= CompilerFlags.GENERATOR
     append = ctx.bc.append
     py_emit(node.value, ctx)
@@ -27,22 +29,28 @@ def py_emit(node: ast.YieldFrom, ctx: Context):
 def py_emit(node: ast.Await, ctx: Context):
     """
         title: await
+        prepare:
+        >>> from time import sleep as ssleep
         test:
-        >>> from asyncio import sleep, run_coroutine_threadsafe, get_event_loop
-        >>> from time import sleep
+        >>> from asyncio import sleep, Task, get_event_loop
         >>> async def f():
         >>>   await sleep(0.2)
         >>>   return 42
-        >>> future = run_coroutine_threadsafe(f(), get_event_loop())
-        >>> sleep(0.2)
-        >>> assert future.result() ==  42
+        >>> result = get_event_loop().run_until_complete(f())
+        >>> print(result)
         """
-    if not (ctx.bc.flags & CompilerFlags.ASYNC_GENERATOR):
+
+    if not (ctx.bc.flags & CompilerFlags.ASYNC_GENERATOR
+            or ctx.bc.flags & CompilerFlags.COROUTINE):
         exc = SyntaxError()
         exc.lineno = node.lineno
         exc.msg = 'await outside async function.'
         raise exc
-    ctx.bc.flags |= CompilerFlags.GENERATOR
+    if ctx.bc.flags | CompilerFlags.ASYNC_GENERATOR:
+        pass
+    else:
+        ctx.bc.flags |= CompilerFlags.COROUTINE
+
     append = ctx.bc.append
     py_emit(node.value, ctx)
     append(Instr('GET_AWAITABLE', lineno=node.lineno))
@@ -62,6 +70,16 @@ def py_emit(node: ast.Yield, ctx: Context):
     >>>     yield 1
     >>> self.assertEqual(1, next(f()))
     """
-    ctx.bc.flags |= CompilerFlags.GENERATOR
+    if ctx.bc.flags & CompilerFlags.COROUTINE:
+        if ctx.bc.flags & CompilerFlags.GENERATOR:
+            ctx.bc.flags ^= CompilerFlags.GENERATOR
+
+        ctx.bc.flags ^= CompilerFlags.COROUTINE
+        ctx.bc.flags |= CompilerFlags.ASYNC_GENERATOR
+    elif ctx.bc.flags & CompilerFlags.ASYNC_GENERATOR:
+        pass
+    else:
+        ctx.bc.flags |= CompilerFlags.GENERATOR
+
     py_emit(node.value, ctx)
     ctx.bc.append(Instr('YIELD_VALUE', lineno=node.lineno))

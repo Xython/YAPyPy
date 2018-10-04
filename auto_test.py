@@ -111,10 +111,10 @@ class Test(unittest.TestCase):
                 exec(bc.to_code(), context)
 
                 # not correct but as a workaround
+
                 fixer = FixLineno(lineno + test_code.count('\n'))
                 try:
                     node = parse(test_code).result
-                    # pprint(node)
                     fixer.visit(node)
                     code = py_compile(node)
                 except SyntaxError as exc:

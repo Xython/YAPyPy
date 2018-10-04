@@ -125,18 +125,25 @@ def py_emit(node: ast.If, ctx: Context):
 
 @py_emit.case(ast.While)
 def py_emit(node: ast.While, ctx: Context):
+    """
+    title: while
+    test:
+    >>> i = 0
+    >>> while i<10 and i!=5:
+    >>>     print(i)
+    >>>     i+=1
+    """
     bb_label = Label()
     ctx.bc.append(Instr("SETUP_LOOP", bb_label, lineno=node.lineno))
     absolute_label = Label()
     ctx.bc.append(absolute_label)
-    py_emit(node.test,ctx)
+    py_emit(node.test, ctx)
     while_label = Label()
-    ctx.bc.append(POP_JUMP_IF_FALSE(while_label,lineno=node.lineno))
+    ctx.bc.append(POP_JUMP_IF_FALSE(while_label, lineno=node.lineno))
     for expr in node.body:
-        py_emit(expr,ctx)
+        py_emit(expr, ctx)
 
-    ctx.bc.append(Instr("JUMP_ABSOLUTE",absolute_label,lineno=node.lineno))
+    ctx.bc.append(Instr("JUMP_ABSOLUTE", absolute_label, lineno=node.lineno))
     ctx.bc.append(while_label)
     ctx.bc.append(POP_BLOCK(lineno=node.lineno))
     ctx.bc.append(bb_label)
-

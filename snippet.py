@@ -32,16 +32,34 @@ def f(x):
 res: Tag = to_tagged_ast(stmt)
 print(res.tag.show_resolution())
 #
+ctx = {}
+exec(
+    r"""
+from asyncio import sleep, get_event_loop
+class S:
+  def __init__(self): self.i = 0
+  def __aiter__(self): return self
+  async def __anext__(self):
+       if self.i < 10:
+            self.i += 1
+            await sleep(0.1)
+            return self.i
+       raise StopAsyncIteration
+
+""", ctx)
 stmt = parse("""
-print({1: 2 for i in range(2)})
+async def f():
+    return {i: i % 5 async for i in S() if i > 3}
+print(get_event_loop().run_until_complete(f()))
 """).result
 
 code = py_compile(stmt)
-exec(code)
-try:
-    parse_expr('f(a=1, b)\n')
-except SyntaxError:
-    print('good')
+exec(code, ctx)
+# exec(code)
+# try:
+#     parse_expr('f(a=1, b)\n')
+# except SyntaxError:
+#     print('good')
 #
 # from bytecode import Bytecode, Instr, Label
 # bc = Bytecode()

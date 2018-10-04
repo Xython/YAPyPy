@@ -19,3 +19,11 @@ class ExDict(ast.Dict):
             self.col_offset = col_offset
 
     _fields = ('keys', 'values', 'ctx')
+
+
+class ConstantMapping(ast.Constant):
+    def __init__(self, value, lineno=None, col_offset=None):
+        super().__init__()
+        self.value = value
+        self.lineno = lineno
+        self.col_offset = col_offset

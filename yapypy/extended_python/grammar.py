@@ -15,7 +15,8 @@ eval_input   ::= it=testlist NEWLINE* ENDMARKER -> Expression(it)
 decorator    ::= '@' exp=test NEWLINE                                                   -> exp
 decorated    ::= decorators=decorator+ it=(classdef | funcdef | async_funcdef)          -> it.decorator_list = list(decorators); return it
                 
-async_funcdef ::= mark='async' name=NAME args=parameters ['->' ret=test] ':' body=suite -> def_rewrite(mark, name, args, ret, body, is_async=True) 
+async_funcdef ::= mark='async' 
+                       'def' name=NAME args=parameters ['->' ret=test] ':' body=suite   -> def_rewrite(mark, name, args, ret, body, is_async=True) 
 funcdef       ::= mark='def' name=NAME args=parameters ['->' ret=test] ':' body=suite   -> def_rewrite(mark, name, args, ret, body)
 
 
