@@ -136,8 +136,7 @@ term           ::= head=factor tail=term_tr*                            -> term_
 factor         ::= mark=('+'|'-'|'~') factor=factor | power=power       -> factor_rewrite(mark, factor, power)          
 
 power          ::= atom_expr=atom_expr ['**' factor=factor]             -> BinOp(atom_expr, Pow(), factor) if factor else  atom_expr
-atom_expr      ::= [a='await'] atom=atom trailers=trailer*
-                   -> atom_expr_rewrite(a, atom, trailers)
+atom_expr      ::= [a='await'] atom=atom trailers=trailer*              -> atom_expr_rewrite(a, atom, trailers)
 
 atom           ::= (is_gen ='(' [yield_expr=yield_expr|comp=testlist_comp] ')' |
                     is_list='[' [comp=testlist_comp]            ']' |
