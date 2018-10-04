@@ -168,6 +168,7 @@ def py_emit(node: ast.Call, ctx: Context):
 @py_emit.case(ast.Compare)
 def py_emit(node: ast.Compare, ctx: Context):
     """
+    title:compare
     test:
     >>> 1 == 1
     >>> 1 != 1
@@ -221,7 +222,6 @@ def py_emit(node: ast.Compare, ctx: Context):
                 ctx.bc.append(
                     JUMP_IF_FALSE_OR_POP(label_rot, lineno=node.lineno))
 
-        ctx.bc.append(JUMP_FORWARD(label_rot))
         ctx.bc.append(label_rot)
         ctx.bc.append(ROT_TWO(lineno=node.lineno))
         ctx.bc.append(POP_TOP(lineno=node.lineno))
