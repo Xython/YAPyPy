@@ -11,6 +11,8 @@ from yapypy.extended_python.symbol_analyzer import to_tagged_ast
 def easy_debug(code: str, should_exec=False):
     res = to_tagged_ast(parse(code).result)
     c = py_compile(res)
+    print("-----------code")
+    print(code)
     print("-----------Python")
     print(dis.dis(code))
     print("-----------YaPyPy")
