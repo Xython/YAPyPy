@@ -4,7 +4,7 @@ import dis
 import pytest
 import unittest
 from astpretty import pprint
-from yapypy.extended_python.pybc_emit import py_compile
+from yapypy.extended_python.py_compile import py_compile
 from yapypy.extended_python.parser import parse
 from Redy.Tools.PathLib import Path
 from os.path import splitext

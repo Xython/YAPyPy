@@ -83,9 +83,33 @@ chaining_expr.py:
 assignable.py:
          | Attribute(expr value, identifier attr, expr_context ctx)
          | Subscript(expr value, slice slice, expr_context ctx)
-         | Starred(expr value, expr_context ctx)
          | Name(identifier id, expr_context ctx)
          | List(expr* elts, expr_context ctx)
          | Tuple(expr* elts, expr_context ctx)
          | Dict(expr* keys, expr* values)
 """
+from .assignable import *
+from .chaining_expr import *
+from .comprehensions import *
+from .constrains import *
+from .control import *
+from .exception_handling import *
+from .imports import *
+from .new_context import *
+from .operations import *
+from .simple_expr import *
+from .simple_stmt import *
+
+
+@py_emit.case(Tag)
+def py_emit(node: Tag, ctx: Context):
+    ctx = ctx.enter_new(node.tag)
+    py_emit(node.it, ctx)
+
+
+@py_emit.case(ast.Module)
+def py_emit(node: ast.Module, ctx: Context):
+    for each in node.body:
+        py_emit(each, ctx)
+    ctx.bc.append(Instr('LOAD_CONST', None))
+    ctx.bc.append(Instr('RETURN_VALUE'))
