@@ -17,6 +17,10 @@ def SETUP_EXCEPT(label: Label, *, lineno=None):
     return Instr("SETUP_EXCEPT", label, lineno=lineno)
 
 
+def YIELD_VALUE(*, lineno=None):
+    return Instr("YIELD_VALUE", lineno=lineno)
+
+
 def GET_AITER(*, lineno=None):
     return Instr("GET_AITER", lineno=lineno)
 

@@ -46,16 +46,27 @@ class S:
             return self.i
        raise StopAsyncIteration
 
+def to_t(aiter):
+    async def _():
+        d = []
+        async for each in aiter:
+            d.append(each)
+        return tuple(d)
+    return get_event_loop().run_until_complete(_())
 """, ctx)
 stmt = parse("""
+
 async def f():
-    return {i: i % 5 async for i in S() if i > 3}
-print(get_event_loop().run_until_complete(f()))
+    return ((i, i % 5) async for i in S() if i > 3)    
+
+print(to_t(get_event_loop().run_until_complete(f())))
 """).result
 
 code = py_compile(stmt)
 exec(code, ctx)
-# exec(code)
+# dis.dis(code.co_consts[0])
+# dis.dis(code.co_consts[1])
+
 # try:
 #     parse_expr('f(a=1, b)\n')
 # except SyntaxError:
