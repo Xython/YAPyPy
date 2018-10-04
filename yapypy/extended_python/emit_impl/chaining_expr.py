@@ -182,6 +182,7 @@ def py_emit(node: ast.Compare, ctx: Context):
     >>> 1 == 1 != 2 > 1 >= 1 < 2 <= 2 is 2 is not 3 in range(3) not in range(3)
     >>> x = 3
     >>> assert 2 < x < 5
+    >>> assert 2 <= x < 5 < 10
     """
     ops = {
         ast.Eq: Compare.EQ,
@@ -220,8 +221,9 @@ def py_emit(node: ast.Compare, ctx: Context):
                 ctx.bc.append(
                     JUMP_IF_FALSE_OR_POP(label_rot, lineno=node.lineno))
 
+        ctx.bc.append(JUMP_FORWARD(label_rot))
         ctx.bc.append(label_rot)
-        ctx.bc.append(ROT_THREE(lineno=node.lineno))
+        ctx.bc.append(ROT_TWO(lineno=node.lineno))
         ctx.bc.append(POP_TOP(lineno=node.lineno))
         ctx.bc.append(label_out)
     else:
