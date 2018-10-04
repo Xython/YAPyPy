@@ -113,6 +113,10 @@ def GET_ITER(*, lineno=None):
     return Instr("GET_ITER", lineno=lineno)
 
 
+def POP_BLOCK(*, lineno=None):
+    return Instr("POP_BLOCK", lineno=lineno)
+
+
 def POP_JUMP_IF_FALSE(label: Label, *, lineno=None):
     return Instr("POP_JUMP_IF_FALSE", label, lineno=lineno)
 
