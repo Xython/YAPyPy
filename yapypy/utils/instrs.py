@@ -197,6 +197,10 @@ def POP_TOP(*, lineno=None):
     return Instr('POP_TOP', lineno=lineno)
 
 
+def CALL_FUNCTION_EX(n: int, *, lineno=None):
+    return Instr("CALL_FUNCTION_EX", n, lineno=lineno)
+
+
 def STORE_GLOBAL(name: str, *, lineno=None):
     return Instr("STORE_GLOBAL", name, lineno=lineno)
 

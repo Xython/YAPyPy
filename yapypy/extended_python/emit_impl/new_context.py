@@ -17,6 +17,8 @@ def emit_function(
         """
 
     parent_ctx: Context = new_ctx.parent
+    name = getattr(node, 'name', '<lambda>')
+    new_ctx.bc.name = f'{parent_ctx.bc.name}.{name}' if parent_ctx.bc.name else name
 
     for decorator in getattr(node, 'decorator_list', ()):
         py_emit(decorator, parent_ctx)
@@ -109,10 +111,7 @@ def emit_function(
 
     # when it comes to nested, the name is not generated correctly now.
     parent_ctx.bc.append(
-        Instr(
-            'LOAD_CONST',
-            getattr(node, 'name', '<lambda>'),
-            lineno=node.lineno))
+        Instr('LOAD_CONST', new_ctx.bc.name, lineno=node.lineno))
 
     parent_ctx.bc.append(
         Instr("MAKE_FUNCTION", make_function_flags, lineno=node.lineno))
@@ -163,4 +162,117 @@ def py_emit(node: ast.Lambda, new_ctx: Context):
 
 @py_emit.case(ast.ClassDef)
 def py_emit(node: ast.ClassDef, ctx: Context):
-    raise NotImplementedError
+    """
+    title: class
+    test:
+    >>> class S:
+    >>>     pass
+    >>> print(S)
+    >>> class T(type):
+    >>>
+    >>>     def __new__(mcs, name, bases, ns):
+    >>>         assert name == 'S' and bases == (list, ) and '__module__' in ns and '__qualname__' in ns
+    >>>         return type(name, bases, ns)
+    >>>
+    >>> class S(list, metaclass=T):
+    >>>     def get2(self):
+    >>>         return self[2]
+    >>>
+    >>> s = S([1, 2, 3])
+    >>> assert s.get2() == 3
+    >>> def call(f): return f()
+    >>> @call
+    >>> class S:
+    >>>     def p(self): return 42
+    >>> assert S.p == 42
+    """
+    lineno = node.lineno
+    col_offset = node.col_offset
+    name = node.name
+
+    parent_ctx: Context = ctx.parent
+    ctx.bc.name = f'{parent_ctx.bc.name}.{name}' if parent_ctx.bc.name else name
+
+    for decorator in getattr(node, 'decorator_list', ()):
+        py_emit(decorator, parent_ctx)
+
+    for each in node.body:
+        py_emit(each, ctx)
+
+    ctx.bc.argcount = 0
+    ctx.bc.kwonlyarbgcount = 0
+    ctx.bc.argnames = ['.yapypy.args', '.yapypy.kwargs']
+    ctx.bc.name = name
+
+    make_function_flags = 0
+    ctx.bc.flags |= CompilerFlags.VARARGS
+    ctx.bc.flags |= CompilerFlags.VARKEYWORDS
+
+    if ctx.sym_tb.freevars:
+        make_function_flags |= 0x08
+        ctx.load_closure(lineno=node.lineno)
+
+    ctx.bc.extend([
+        LOAD_GLOBAL('__name__'),
+        STORE_FAST('__module__'),
+        LOAD_CONST(ctx.bc.name),
+        STORE_FAST('__qualname__'),
+        LOAD_FAST('.yapypy.kwargs'),
+        LOAD_ATTR('get'),
+        LOAD_CONST('metaclass'),
+        LOAD_GLOBAL('.yapypy.type'),
+        CALL_FUNCTION(2),  # get metaclass
+        LOAD_CONST(name),
+        LOAD_FAST('.yapypy.args'),
+        LOAD_GLOBAL('.yapypy.locals'),
+        CALL_FUNCTION(0),  # get locals
+        DUP_TOP(),
+        LOAD_ATTR('pop'),
+        DUP_TOP(),
+        LOAD_CONST('.yapypy.args'),
+        CALL_FUNCTION(1),
+        POP_TOP(),
+        LOAD_CONST('.yapypy.kwargs'),
+        CALL_FUNCTION(1),
+        POP_TOP(),
+        CALL_FUNCTION(3, lineno=node.lineno),  # create new type
+    ])
+
+    ctx.bc.append(Instr('RETURN_VALUE'))
+    inner_code = ctx.bc.to_code()
+
+    parent_ctx.bc.append(LOAD_CONST(inner_code, lineno=lineno))
+    # when it comes to nested, the name is not generated correctly now.
+    parent_ctx.bc.append(LOAD_CONST(name, lineno=lineno))
+
+    parent_ctx.bc.append(MAKE_FUNCTION(make_function_flags, lineno=lineno))
+
+    # *args
+    if node.bases:
+        vararg = ast.Tuple(
+            node.bases, ast.Load(), lineno=lineno, col_offset=col_offset)
+        ast.fix_missing_locations(vararg)
+        py_emit(vararg, parent_ctx)
+    else:
+        parent_ctx.bc.append(LOAD_CONST(()))
+
+    # **kwargs
+    if node.keywords:
+        keys, values = zip(*[(ast.Str(
+            keyword.arg,
+            lineno=keyword.value.lineno,
+            col_offset=keyword.value.col_offset) if keyword.arg else None,
+                              keyword.value) for keyword in node.keywords])
+
+        ex_dict = ex_ast.ExDict(keys, values, ast.Load())
+        ast.fix_missing_locations(ex_dict)
+        py_emit(ex_dict, parent_ctx)
+    else:
+        parent_ctx.bc.append(BUILD_MAP(0))
+
+    parent_ctx.bc.append(CALL_FUNCTION_EX(1))
+
+    parent_ctx.bc.extend([CALL_FUNCTION(1, lineno=lineno)] * len(
+        getattr(node, 'decorator_list', ())))
+
+    parent_ctx.store_name(node.name, lineno=lineno)

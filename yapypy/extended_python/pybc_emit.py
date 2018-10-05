@@ -39,7 +39,8 @@ class Context(INamedList, metaclass=trait(as_namedlist)):
         bc = Bytecode()
         cts = tag_table.cts
 
-        if ContextType.Annotation in cts:
+        if ContextType.Annotation in cts and (ContextType.ClassDef in cts
+                                              or ContextType.Module in cts):
             bc.append(SETUP_ANNOTATIONS())
 
         if ContextType.Coroutine in cts:

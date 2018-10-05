@@ -79,11 +79,10 @@ def case(code, ctx, debug=False):
     code_obj = py_compile(stmt)
     if debug:
         code_obj2 = compile(code, "", "exec")
-        with open('out_yapypy_bc.log',
-                  'w') as yapypy_bc, open('out_yapypy_info.log',
-                                          'w') as yapypy_info, open(
-                                              'out_cpy_bc.log', 'w') as cpy_bc, open(
-                                                  'out_cpy_info.log', 'w') as cpy_info:
+        with open('out_yapypy_bc.log', 'w') as yapypy_bc, open(
+                'out_yapypy_info.log', 'w') as yapypy_info, open(
+                    'out_cpy_bc.log', 'w') as cpy_bc, open(
+                        'out_cpy_info.log', 'w') as cpy_info:
 
             dis_code(code_obj, yapypy_bc)
             show_code(code_obj, yapypy_info)
@@ -101,30 +100,44 @@ def case(code, ctx, debug=False):
 
 case(
     """
-def f():
-    return ((i, i % 5) for i in range(30) if i > 3)
-print(tuple(f()))
-    """,
-    ctx,
-    debug=False)
+class S:
+    pass
+print(S)
 
-case(
-    """
-async def f():
-    return (i % 5 async for i in S())
-print(to_t(get_event_loop().run_until_complete(f())))
-    """,
-    ctx,
-    debug=False)
 
-case(
-    """
-async def f():
-    return {i % 5: i for k in range(2) async for i in S()}
-print(get_event_loop().run_until_complete(f()))
+class T(type):
+    
+    def __new__(mcs, name, bases, ns):
+        print(mcs, name, bases, ns)
+        return type(name, bases, ns)
+
+class S(list, metaclass=T):
+    def get2(self):
+        return self[2]
+
+s = S([1, 2, 3])
+print(s.get2())
     """,
     ctx,
     debug=True)
+
+# case(
+#     """
+# async def f():
+#     return (i % 5 async for i in S())
+# print(to_t(get_event_loop().run_until_complete(f())))
+#     """,
+#     ctx,
+#     debug=False)
+#
+# case(
+#     """
+# async def f():
+#     return {i % 5: i for k in range(2) async for i in S()}
+# print(get_event_loop().run_until_complete(f()))
+#     """,
+#     ctx,
+#     debug=True)
 
 # exec(code, ctx)
 # dis.dis(code.co_consts[0])

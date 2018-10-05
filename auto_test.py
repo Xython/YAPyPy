@@ -114,10 +114,10 @@ class Test(unittest.TestCase):
 
                 fixer = FixLineno(lineno + test_code.count('\n'))
                 try:
-                    node = parse(test_code).result
+                    node = parse(test_code, filename).result
                     # pprint(node)
                     fixer.visit(node)
-                    code = py_compile(node)
+                    code = py_compile(node, filename, is_entrypoint=True)
                 except SyntaxError as exc:
                     exc.lineno = lineno
                     exc.filename = filename

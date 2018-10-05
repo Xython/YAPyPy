@@ -15,10 +15,7 @@ class ContextType(Enum):
     Generator = _auto()  # yield
     Coroutine = _auto()  # async
     Annotation = _auto()
-
-    @classmethod
-    def is_async_generator(cls, cts: typing.AbstractSet['ContextType']):
-        return ContextType.Generator in cts and ContextType.Coroutine in cts
+    ClassDef = _auto()
 
 
 class AnalyzedSymTable(NamedTuple):
@@ -197,6 +194,31 @@ def visit_suite(visit_fn, suite: list):
     return [visit_fn(each) for each in suite]
 
 
+def _visit_cls(self: 'ASTTagger', node: ast.ClassDef):
+
+    bases = visit_suite(self.visit, node.bases)
+    keywords = visit_suite(self.visit, node.keywords)
+    decorator_list = visit_suite(self.visit, node.decorator_list)
+
+    self.symtable.entered.add(node.name)
+
+    new = self.symtable.enter_new()
+
+    new.entered.add('__module__')
+    new.entered.add('__qualname__')
+
+    new_tagger = ASTTagger(new)
+    new.cts.add(ContextType.ClassDef)
+    body = visit_suite(new_tagger.visit, node.body)
+
+    node.bases = bases
+    node.keywords = keywords
+    node.decorator_list = decorator_list
+    node.body = body
+
+    return Tag(node, new)
+
+
 def _visit_list_set_gen_comp(self: 'ASTTagger', node: ast.ListComp):
     new = self.symtable.enter_new()
     new.entered.add('.0')
@@ -323,6 +345,7 @@ class ASTTagger(ast.NodeTransformer):
     visit_Yield = _visit_yield
     visit_YieldFrom = _visit_yield_from
     visit_AnnAssign = _visit_ann_assign
+    visit_ClassDef = _visit_cls
 
 
 def to_tagged_ast(node: ast.Module):
