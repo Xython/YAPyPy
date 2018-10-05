@@ -29,4 +29,5 @@ setup(
         'Programming Language :: Python :: 3.7',
         'Programming Language :: Python :: Implementation :: CPython'
     ],
-    zip_safe=False)
+    zip_safe=False
+)

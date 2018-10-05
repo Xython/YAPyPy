@@ -7,6 +7,7 @@ INamedList is just for type hinting,
 from bytecode import Instr, Bytecode, CompilerFlags
 from typing import NamedTuple as INamedList
 import sys
+
 globals()['INamedList'] = list
 __all__ = ['metaclasses', 'as_namedlist', 'trait', 'INamedList']
 
@@ -17,7 +18,7 @@ def metaclasses(*clses: type, typename='metametaclass'):
             cls(f'{cls.__name__}{name}', base, namespace) for cls in clses)
         return type(name, bases, namespace)
 
-    return type(typename, (type, ), dict(__new__=__new__))
+    return type(typename, (type,), dict(__new__=__new__))
 
 
 def trait(*traits):
@@ -119,7 +120,6 @@ def as_namedlist(name, bases, namespace: dict):
 
         namespace['__str__'] = get_func_from_code(str_code.to_code(),
                                                   '__str__')
-
 
     return bases if any(
         issubclass(t, list) for t in bases) else (*bases, list), namespace
