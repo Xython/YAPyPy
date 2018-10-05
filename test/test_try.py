@@ -8,18 +8,26 @@ from yapypy.extended_python.py_compile import py_compile
 
 code = r"""
 try:
-    raise
-except TypeError as e:
-    a = 3
+    a = b
 except NameError as e:
+    a = 3
+    print( a )
+except ValueError as e:
     a = 4
-except RuntimeError as e:
+    print( a )
+else:
     a = 5
+    print( a )
+finally:
+    a = -1
+    print( a )
 """
 res: Tag = to_tagged_ast(parse(code).result)
 co = py_compile(res)
 import dis
 dis.dis(co)
 print( dis.code_info(co) )
+from bytecode import Bytecode
+for i in Bytecode.from_code(co):
+    print(i)
 exec(co)
-print( a )
