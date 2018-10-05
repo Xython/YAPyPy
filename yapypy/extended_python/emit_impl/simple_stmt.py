@@ -58,6 +58,8 @@ def py_emit(node: ast.Expr, ctx: Context):
 def py_emit(node: ast.AugAssign, ctx: Context):
     """
     title: aug_assign
+    prepare:
+    >>> class S: pass
     test:
     >>> x = 1
     >>> x += 1
@@ -65,7 +67,7 @@ def py_emit(node: ast.AugAssign, ctx: Context):
     >>> x = [1, 2, 3]
     >>> x[1 + 1] += 2
     >>> assert x[1 + 1]== 5
-    >>> class S: pass
+prepare:
     >>> s = S()
     >>> s.x = 1
     >>> s.x += 1

@@ -63,6 +63,11 @@ def py_emit(node: ast.Slice, ctx: Context):
     """
     see more test cases for Subscript
     title: slice
+    prepare:
+    >>> class S:
+    >>>    def __getitem__(self, item):
+    >>>         if item == (1, slice(2, 3, None)): return 1
+    >>>         elif item == (slice(None, 3, 2), 2): return 2
     test:
     >>> x = [1, 2, 3]
     >>> assert x[::-1] == [3, 2, 1]
@@ -70,10 +75,7 @@ def py_emit(node: ast.Slice, ctx: Context):
     >>> assert x[:1:-1] ==  [3]
     >>> assert x[:0:-1] == [3, 2]
     >>> assert x[1:2:1] == [2]
-    >>> class S:
-    >>>    def __getitem__(self, item):
-    >>>         if item == (1, slice(2, 3, None)): return 1
-    >>>         elif item == (slice(None, 3, 2), 2): return 2
+    >>> x = S()
     >>> assert x[1, 2:3] == 1
     >>> assert x[:3:2, 2] == 2
 

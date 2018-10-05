@@ -166,15 +166,21 @@ def py_emit(node: ast.List, ctx: Context):
 
 
 @py_emit.case(ex_ast.ExDict)
-def py_emit(node: ast.Dict, ctx: Context):
+def py_emit(node: ex_ast.ExDict, ctx: Context):
     keys = node.keys
+    expr_ctx_ty = type(node.ctx)
     values = node.values
     if any(each for each in keys if each is None):
+
         raise NotImplemented
-    for key, value in zip(keys, values):
-        py_emit(key, ctx)
-        py_emit(value, ctx)
-    ctx.bc.append(Instr('BUILD_MAP', len(keys), lineno=node.lineno))
+    else:
+        if expr_ctx_ty is ast.Load:
+            for key, value in zip(keys, values):
+                py_emit(key, ctx)
+                py_emit(value, ctx)
+            ctx.bc.append(Instr('BUILD_MAP', len(keys), lineno=node.lineno))
+        else:
+            pass
 
 
 @py_emit.case(ast.Subscript)
