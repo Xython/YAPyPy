@@ -30,7 +30,6 @@ class YAPyPyLoader:
         setattr(module, '__package__', self.mod_name)
         setattr(module, '__loader__', self)
         bc = module.__bytecode__
-        dis.dis(bc)
         exec(bc, module.__dict__)
 
     def create_module(self, spec):
