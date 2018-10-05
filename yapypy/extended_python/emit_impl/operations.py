@@ -33,8 +33,10 @@ def py_emit(node: ast.BinOp, ctx: Context):
         ast.BitOr: "BINARY_OR",
         ast.BitXor: "BINARY_XOR",
         ast.Mult: "BINARY_MULTIPLY",
-        ast.Mod: "BINARY_MODULO"
-    }[type(node.op)]
+        ast.Mod: "BINARY_MODULO",
+    }.get(type(node.op))
+
+    assert inst is not None
     ctx.bc.append(Instr(inst, lineno=node.lineno))
 
 
@@ -42,9 +44,10 @@ def py_emit(node: ast.BinOp, ctx: Context):
 def py_emit(node: ast.BoolOp, ctx: Context):
     inst = {
         ast.And: "JUMP_IF_FALSE_OR_POP",
-        ast.Or: "JUMP_IF_TRUE_OR_POP"
+        ast.Or: "JUMP_IF_TRUE_OR_POP",
     }.get(type(node.op))
-    if inst:
+
+    if inst is not None:
         label = Label()
         for expr in node.values[:-1]:
             py_emit(expr, ctx)

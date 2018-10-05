@@ -26,4 +26,3 @@ def easy_debug(code: str, should_exec=False):
         exec(c)
     else:
         print("\t(skip)")
-
