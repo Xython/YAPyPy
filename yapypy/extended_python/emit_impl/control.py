@@ -353,3 +353,47 @@ def py_emit(node: ast.Continue, ctx: Context):
     >>> self.assertEqual(s, 4+6+1 + 4+6 + 4+6+3)
     """
     ctx.bc.append(JUMP_ABSOLUTE(ctx.get_current_label(), lineno=node.lineno))
+
+
+@py_emit.case(ast.With)
+def py_emit(node: ast.With, ctx: Context):
+    """
+    title: With
+    prepare:
+    >>> import os
+    test:
+    >>> with open(os.devnull, "w") as fp, open(os.devnull, "w"), open(os.devnull, "w") as fpp:
+    >>>     fp.write("emmm")
+    >>>     fpp.wirte("ummm")
+    >>>     assert fp.closed, fpp.closed == False, False
+    >>> assert fp.closed, fpp.closed == True, True
+
+    >>> a = -1
+    >>> for i in range(10):
+    >>>     with open(os.devnull, "w") as fp:
+    >>>         a = i
+    >>>         break
+    >>> assert a == 0
+    """
+
+    flabel_stack = []
+    for each in node.items:
+        finally_label = Label()
+        flabel_stack.append(finally_label)
+        py_emit(each.context_expr, ctx)
+        ctx.bc.append(Instr("SETUP_WITH", finally_label, lineno=node.lineno))
+        if each.optional_vars:
+            py_emit(each.optional_vars, ctx)
+        else:
+            ctx.bc.append(Instr("POP_TOP", lineno=node.lineno))
+
+    for each in node.body:
+        py_emit(each, ctx)
+
+    while flabel_stack:
+        ctx.bc.append(Instr("POP_BLOCK", lineno=node.lineno))
+        ctx.bc.append(Instr("LOAD_CONST", None, lineno=node.lineno))
+        ctx.bc.append(flabel_stack.pop(-1))
+        ctx.bc.append(Instr("WITH_CLEANUP_START", lineno=node.lineno))
+        ctx.bc.append(Instr("WITH_CLEANUP_FINISH", lineno=node.lineno))
+        ctx.bc.append(Instr("END_FINALLY", lineno=node.lineno))
