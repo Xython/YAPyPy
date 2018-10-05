@@ -1,0 +1,51 @@
+<module>
+    LOAD_CONST <code object <module> at 0x000001DFB2ED0540, file "<string>", line 1> 
+    LOAD_CONST 'f' 
+    MAKE_FUNCTION 0 
+    STORE_GLOBAL 'f' 
+    LOAD_GLOBAL 'print' 
+    LOAD_GLOBAL 'f' 
+    CALL_FUNCTION 0 
+    CALL_FUNCTION 1 
+    POP_TOP 
+    LOAD_CONST None 
+    RETURN_VALUE 
+
+<module>
+    LOAD_GLOBAL 'tuple' 
+    LOAD_CONST <code object <module> at 0x000001DFB29A0390, file "<string>", line 1> 
+    LOAD_CONST '<module>.<locals>.<genexp>' 
+    MAKE_FUNCTION 0 
+    LOAD_GLOBAL 'range' 
+    LOAD_CONST 10 
+    CALL_FUNCTION 1 
+    GET_ITER 
+    CALL_FUNCTION 1 
+    CALL_FUNCTION 1 
+    RETURN_VALUE 
+    LOAD_CONST None 
+    RETURN_VALUE 
+
+<module>
+    LOAD_FAST '.0' 
+
+label_instr1: 
+    FOR_ITER <label_instr16> 
+    STORE_FAST 'i' 
+    LOAD_FAST 'i' 
+    LOAD_CONST 2 
+    BINARY_MODULO 
+    POP_JUMP_IF_FALSE <label_instr1> 
+    LOAD_FAST 'i' 
+    LOAD_CONST 6 
+    COMPARE_OP <Compare.GT: 4> 
+    POP_JUMP_IF_FALSE <label_instr1> 
+    LOAD_FAST 'i' 
+    YIELD_VALUE 
+    POP_TOP 
+    JUMP_ABSOLUTE <label_instr1> 
+
+label_instr16: 
+    LOAD_CONST None 
+    RETURN_VALUE 
+

@@ -1,0 +1,39 @@
+    BUILD_MAP 0
+    LOAD_FAST '.0'
+
+label_instr2:
+    SETUP_EXCEPT <label_instr10>
+    GET_ANEXT
+    LOAD_CONST None
+    YIELD_FROM
+    STORE_FAST 'i'
+    POP_BLOCK
+    JUMP_FORWARD <label_instr16>
+
+label_instr10:
+    DUP_TOP
+    LOAD_GLOBAL 'StopAsyncIteration'
+    COMPARE_OP <Compare.EXC_MATCH: 10>
+    POP_JUMP_IF_TRUE <label_instr27>
+    END_FINALLY
+
+label_instr16:
+    LOAD_FAST 'i'
+    LOAD_CONST 3
+    COMPARE_OP <Compare.GT: 4>
+    POP_JUMP_IF_FALSE <label_instr2>
+    LOAD_FAST 'i'
+    LOAD_CONST 5
+    BINARY_MODULO
+    LOAD_FAST 'i'
+    MAP_ADD 2
+    JUMP_ABSOLUTE <label_instr2>
+
+label_instr27:
+    POP_TOP
+    POP_TOP
+    POP_TOP
+    POP_EXCEPT
+    POP_TOP
+    RETURN_VALUE
+

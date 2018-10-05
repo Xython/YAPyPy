@@ -1,0 +1,58 @@
+
+
+
+<module>:
+
+Name:              <module>
+Filename:          <string>
+Argument count:    0
+Kw-only arguments: 0
+Number of locals:  0
+Stack size:        2
+Flags:             NOFREE
+Constants:
+   0: <code object <module> at 0x000001DFB2ED0540, file "<string>", line 1>
+   1: 'f'
+   2: None
+Names:
+   0: f
+   1: print
+
+
+
+<module>:
+
+Name:              <module>
+Filename:          <string>
+Argument count:    0
+Kw-only arguments: 0
+Number of locals:  0
+Stack size:        4
+Flags:             NEWLOCALS, NOFREE
+Constants:
+   0: <code object <module> at 0x000001DFB29A0390, file "<string>", line 1>
+   1: '<module>.<locals>.<genexp>'
+   2: 10
+   3: None
+Names:
+   0: tuple
+   1: range
+
+
+
+<module>:
+
+Name:              <module>
+Filename:          <string>
+Argument count:    1
+Kw-only arguments: 0
+Number of locals:  2
+Stack size:        3
+Flags:             NEWLOCALS, NESTED, NOFREE
+Constants:
+   0: 2
+   1: 6
+   2: None
+Variable names:
+   0: .0
+   1: i

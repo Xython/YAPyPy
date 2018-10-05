@@ -1,0 +1,49 @@
+<module>
+    LOAD_CONST <code object f at 0x000001DFB2ED0DB0, file "", line 2> 
+    LOAD_CONST 'f' 
+    MAKE_FUNCTION 0 
+    STORE_NAME 'f' 
+    LOAD_NAME 'print' 
+    LOAD_NAME 'f' 
+    CALL_FUNCTION 0 
+    CALL_FUNCTION 1 
+    POP_TOP 
+    LOAD_CONST None 
+    RETURN_VALUE 
+
+f
+    LOAD_GLOBAL 'tuple' 
+    LOAD_CONST <code object <genexpr> at 0x000001DFB2ED0AE0, file "", line 3> 
+    LOAD_CONST 'f.<locals>.<genexpr>' 
+    MAKE_FUNCTION 0 
+    LOAD_GLOBAL 'range' 
+    LOAD_CONST 10 
+    CALL_FUNCTION 1 
+    GET_ITER 
+    CALL_FUNCTION 1 
+    CALL_FUNCTION 1 
+    RETURN_VALUE 
+
+<genexpr>
+    LOAD_FAST '.0' 
+
+label_instr1: 
+    FOR_ITER <label_instr16> 
+    STORE_FAST 'i' 
+    LOAD_FAST 'i' 
+    LOAD_CONST 2 
+    BINARY_MODULO 
+    POP_JUMP_IF_FALSE <label_instr1> 
+    LOAD_FAST 'i' 
+    LOAD_CONST 6 
+    COMPARE_OP <Compare.GT: 4> 
+    POP_JUMP_IF_FALSE <label_instr1> 
+    LOAD_FAST 'i' 
+    YIELD_VALUE 
+    POP_TOP 
+    JUMP_ABSOLUTE <label_instr1> 
+
+label_instr16: 
+    LOAD_CONST None 
+    RETURN_VALUE 
+

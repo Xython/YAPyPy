@@ -94,7 +94,6 @@ def py_emit(node: ast.AugAssign, ctx: Context):
     py_emit(target, ctx)
     to_move: Instr = ctx.bc.pop()
 
-    is_composed = isinstance(target, (ast.Attribute, ast.Subscript))
     if target_ty is ast.Subscript:
         ctx.bc.append(DUP_TOP_TWO())
     elif target_ty is ast.Attribute:

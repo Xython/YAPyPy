@@ -125,8 +125,8 @@ class Test(unittest.TestCase):
                 bc = Bytecode.from_code(code)
                 bc.filename = filename
                 bc.first_lineno = lineno
-                exec(bc.to_code(), context)
-
+                code_obj = bc.to_code()
+                exec(code_obj, context)
                 print(f'tests of {mod_name}.{title or fn_name} passed.')
 
 
