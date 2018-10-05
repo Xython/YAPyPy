@@ -13,3 +13,4 @@ omit =
     tests/*
     auto_test.py
     yapypy/utils/*
+    yapypy/cmd/*
