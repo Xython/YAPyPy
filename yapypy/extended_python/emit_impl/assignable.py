@@ -171,7 +171,6 @@ def py_emit(node: ex_ast.ExDict, ctx: Context):
     expr_ctx_ty = type(node.ctx)
     values = node.values
     if any(each for each in keys if each is None):
-
         raise NotImplemented
     else:
         if expr_ctx_ty is ast.Load:
@@ -221,21 +220,29 @@ def py_emit(node: ast.Subscript, ctx: Context):
     else:
         py_emit(node.slice.value, ctx)
 
-    ctx.bc.append({
+    command = {
         ast.Del: DELETE_SUBSCR,
         ast.Store: STORE_SUBSCR,
-        ast.Load: BINARY_SUBSCR
-    }[expr_context_ty](lineno=node.lineno))
+        ast.Load: BINARY_SUBSCR,
+    }[expr_context_ty]
+
+    ctx.bc.append(command(lineno=node.lineno, ), )
 
 
 @py_emit.case(ast.Name)
 def py_emit(node: ast.Name, ctx: Context):
-    {
+    command = {
         ast.Load: ctx.load_name,
         ast.Store: ctx.store_name,
-        ast.Del: ctx.del_name
-    }[type(node.ctx)](
-        node.id, lineno=node.lineno)
+        ast.Del: ctx.del_name,
+    }[type(node.ctx)]
+
+    assert command is not None
+
+    command(
+        node.id,
+        lineno=node.lineno,
+    )
 
 
 @py_emit.case(ast.Attribute)
@@ -254,8 +261,15 @@ def py_emit(node: ast.Attribute, ctx: Context):
     """
     py_emit(node.value, ctx)
 
-    ctx.bc.append({
+    command = {
         ast.Store: STORE_ATTR,
         ast.Load: LOAD_ATTR,
-        ast.Del: DELETE_ATTR
-    }[type(node.ctx)](node.attr, lineno=node.lineno))
+        ast.Del: DELETE_ATTR,
+    }[type(node.ctx)]
+
+    assert command is not None
+
+    ctx.bc.append(command(
+        node.attr,
+        lineno=node.lineno,
+    ), )
