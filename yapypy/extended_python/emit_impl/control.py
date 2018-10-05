@@ -127,26 +127,44 @@ def py_emit(node: ast.If, ctx: Context):
 def py_emit(node: ast.While, ctx: Context):
     """
     title: while
+    prepare:
+    >>> import unittest
+    >>> self: unittest.TestCase
     test:
-    >>> i = 0
-    >>> while i<10 and i!=5:
-    >>>     print(i)
-    >>>     i+=1
+    >>> s = 0
+    >>> a = 0
+    >>> while a < 3:
+    >>>     a += 1
+    >>>     s += a
+    >>> self.assertEqual(s, 1 + 2 + 3)
+
+    >>> s = 0
+    >>> a = 0
+    >>> while a < 3:
+    >>>     a += 1
+    >>>     s += a
+    >>> else:
+    >>>     s = -1
+    >>> self.assertEqual(s, -1)
     """
-    bb_label = Label()
-    ctx.bc.append(Instr("SETUP_LOOP", bb_label, lineno=node.lineno))
-    absolute_label = Label()
-    ctx.bc.append(absolute_label)
+    while_loop_with_orelse_out = Label()
+    while_iter_in = Label()
+    while_iter_out = Label()
+    ctx.bc.append(SETUP_LOOP(while_loop_with_orelse_out, lineno=node.lineno))
+    ctx.bc.append(while_iter_in)
     py_emit(node.test, ctx)
-    while_label = Label()
-    ctx.bc.append(POP_JUMP_IF_FALSE(while_label, lineno=node.lineno))
+    ctx.bc.append(POP_JUMP_IF_FALSE(while_iter_out, lineno=node.lineno))
     for expr in node.body:
         py_emit(expr, ctx)
 
-    ctx.bc.append(Instr("JUMP_ABSOLUTE", absolute_label, lineno=node.lineno))
-    ctx.bc.append(while_label)
+    ctx.bc.append(JUMP_ABSOLUTE(while_iter_in, lineno=node.lineno))
+    ctx.bc.append(while_iter_out)
     ctx.bc.append(POP_BLOCK(lineno=node.lineno))
-    ctx.bc.append(bb_label)
+
+
+    for each in node.orelse:
+        py_emit(each, ctx)
+    ctx.bc.append(while_loop_with_orelse_out)
 
 
 @py_emit.case(ast.For)
@@ -157,29 +175,29 @@ def py_emit(node: ast.For, ctx: Context):
     >>> import unittest
     >>> self: unittest.TestCase
     test:
-    >>> a = 0
+    >>> s = 0
     >>> for x in [1, 2, 3]:
-    >>>     a += x
-    >>> assert a == 6
+    >>>     s += x
+    >>> self.assertEqual(s, 1 + 2 + 3)
 
-    >>> a = 0
+    >>> s = 0
     >>> for x in [1, 2, 3]:
-    >>>     a += x
+    >>>     s += x
     >>> else:
-    >>>     a = -1
-    >>> assert a == -1
+    >>>     s = -1
+    >>> self.assertEqual(s, -1)
 
-    >>> a = 0
-    >>> b = [1, 2, 3]
-    >>> for x in [*b, 4]:
-    >>>     a += x
-    >>> assert a == 10
+    >>> s = 0
+    >>> a = [1, 2, 3]
+    >>> for x in [*a, 4]:
+    >>>     s += x
+    >>> self.assertEqual(s, 1 + 2 + 3 + 4)
 
-    >>> a = 0
+    >>> s = 0
     >>> for k, v in [(1, 2), (3, 4)]:
-    >>>     a += k
-    >>>     a += v
-    >>> assert a == 10
+    >>>     s += k
+    >>>     s += v
+    >>> self.assertEqual(s, 1 + 2 + 3 + 4)
     """
 
     for_loop_with_orelse_out = Label()
@@ -187,16 +205,16 @@ def py_emit(node: ast.For, ctx: Context):
     for_iter_out = Label()
     ctx.bc.append(SETUP_LOOP(for_loop_with_orelse_out, lineno=node.lineno))
     py_emit(node.iter, ctx)
-    ctx.bc.append(Instr('GET_ITER', lineno=node.lineno))
+    ctx.bc.append(GET_ITER(lineno=node.lineno))
     ctx.bc.append(for_iter_in)
-    ctx.bc.append(Instr('FOR_ITER', for_iter_out, lineno=node.lineno))
+    ctx.bc.append(FOR_ITER(for_iter_out, lineno=node.lineno))
     py_emit(node.target, ctx)
 
     for each in node.body:
         py_emit(each, ctx)
-    ctx.bc.append(Instr('JUMP_ABSOLUTE', for_iter_in, lineno=node.lineno))
+    ctx.bc.append(JUMP_ABSOLUTE(for_iter_in, lineno=node.lineno))
     ctx.bc.append(for_iter_out)
-    ctx.bc.append(Instr('POP_BLOCK', lineno=node.lineno))
+    ctx.bc.append(POP_BLOCK(lineno=node.lineno))
 
     for each in node.orelse:
         py_emit(each, ctx)
