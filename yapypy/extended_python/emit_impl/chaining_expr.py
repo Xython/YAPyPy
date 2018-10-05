@@ -118,14 +118,16 @@ def py_emit(node: ast.Call, ctx: Context):
                                 "LOAD_CONST",
                                 tuple(keys),
                                 lineno=node.lineno,
-                            ), )
+                            ),
+                        )
 
                         ctx.bc.append(
                             Instr(
                                 "BUILD_CONST_KEY_MAP",
                                 karg_count,
                                 lineno=node.lineno,
-                            ), )
+                            ),
+                        )
                     elif karg_count == 1:
                         ctx.bc.append(
                             Instr("LOAD_CONST", keys[0], lineno=node.lineno))
@@ -145,7 +147,9 @@ def py_emit(node: ast.Call, ctx: Context):
                 Instr(
                     "BUILD_MAP_UNPACK_WITH_CALL",
                     karg_pack_count,
-                    lineno=node.lineno))
+                    lineno=node.lineno,
+                )
+            )
     else:
         keys = []
         for each in node.keywords:
@@ -159,16 +163,25 @@ def py_emit(node: ast.Call, ctx: Context):
             Instr(
                 "CALL_FUNCTION_EX",
                 has_star_star | has_key,
-                lineno=node.lineno))
+                lineno=node.lineno,
+            )
+        )
     elif has_key:
         ctx.bc.append(
             Instr(
                 "CALL_FUNCTION_KW",
                 len(node.args) + len(node.keywords),
-                lineno=node.lineno))
+                lineno=node.lineno,
+            )
+        )
     else:
         ctx.bc.append(
-            Instr('CALL_FUNCTION', len(node.args), lineno=node.lineno))
+            Instr(
+                'CALL_FUNCTION',
+                len(node.args),
+                lineno=node.lineno,
+            ),
+        )
 
 
 @py_emit.case(ast.Compare)

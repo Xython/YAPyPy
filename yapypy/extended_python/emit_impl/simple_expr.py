@@ -35,7 +35,8 @@ def py_emit(node: ast.Set, ctx: Context):
             "BUILD_SET_UNPACK",
             len(starreds) + 1,
             lineno=node.lineno,
-        ), )
+        ),
+    )
 
 
 @py_emit.case(ast.Str)

@@ -32,17 +32,19 @@ class Context(INamedList, metaclass=trait(as_namedlist)):
     parent: 'Context'
     current_label_stack: list
 
-    def update(self,
-               bc=None,
-               sym_tb=None,
-               parent=None,
-               current_label_stack=None):
+    def update(
+            self,
+            bc=None,
+            sym_tb=None,
+            parent=None,
+            current_label_stack=None,
+    ):
         return Context(
             bc if bc is not None else self.bc,
             sym_tb if sym_tb is not None else self.sym_tb,
             parent if parent is not None else self.parent,
-            current_label_stack=current_label_stack
-            or self.current_label_stack)
+            current_label_stack or self.current_label_stack,
+        )
 
     def enter_new(self, tag_table: SymTable):
         sym_tb = IndexedAnalyzedSymTable.from_raw(tag_table)

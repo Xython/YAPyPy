@@ -224,9 +224,9 @@ def py_emit(node: ast.Subscript, ctx: Context):
         ast.Del: DELETE_SUBSCR,
         ast.Store: STORE_SUBSCR,
         ast.Load: BINARY_SUBSCR,
-    }[expr_context_ty]
+    }.get(expr_context_ty)
 
-    ctx.bc.append(command(lineno=node.lineno, ), )
+    ctx.bc.append(command(lineno=node.lineno))
 
 
 @py_emit.case(ast.Name)
@@ -235,7 +235,7 @@ def py_emit(node: ast.Name, ctx: Context):
         ast.Load: ctx.load_name,
         ast.Store: ctx.store_name,
         ast.Del: ctx.del_name,
-    }[type(node.ctx)]
+    }.get(type(node.ctx))
 
     assert command is not None
 
@@ -265,11 +265,12 @@ def py_emit(node: ast.Attribute, ctx: Context):
         ast.Store: STORE_ATTR,
         ast.Load: LOAD_ATTR,
         ast.Del: DELETE_ATTR,
-    }[type(node.ctx)]
+    }.get(type(node.ctx))
 
     assert command is not None
-
-    ctx.bc.append(command(
-        node.attr,
-        lineno=node.lineno,
-    ), )
+    ctx.bc.append(
+        command(
+            node.attr,
+            lineno=node.lineno,
+        ),
+    )

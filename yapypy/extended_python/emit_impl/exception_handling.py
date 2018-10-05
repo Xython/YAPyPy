@@ -72,10 +72,12 @@ def py_emit(node: ast.Assert, ctx: Context):
     byte_codes.append(LOAD_GLOBAL("AssertionError", lineno=node.lineno))
     if msg is not None:
         py_emit(msg, ctx)
-        byte_codes.append(CALL_FUNCTION(
-            1,
-            lineno=node.lineno,
-        ), )  # AssertError(<arg>) , awalys 1
+        byte_codes.append(
+            CALL_FUNCTION(
+                1,
+                lineno=node.lineno,
+            ),
+        )  # AssertError(<arg>) , awalys 1
     byte_codes.append(RAISE_VARARGS(1, lineno=node.lineno))  # <argc> awalys 1
     byte_codes.append(label)
 
