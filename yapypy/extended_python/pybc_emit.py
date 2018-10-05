@@ -99,6 +99,29 @@ class Context(INamedList, metaclass=trait(as_namedlist)):
                     raise RuntimeError
             parent.bc.append(Instr('BUILD_TUPLE', len(freevars)))
 
+    def push_current_label(self, label: Label):
+        if not hasattr(self, "_current_label_stack"):
+            setattr(self, "_current_label_stack", [])
+
+        s = getattr(self, "_current_label_stack")
+        s.append(label)
+        setattr(self, "_current_label_stack", s)
+
+    def pop_current_label(self):
+        if not hasattr(self, "_current_label_stack"):
+            raise AttributeError
+
+        s = getattr(self, "_current_label_stack")
+        s.pop()
+        setattr(self, "_current_label_stack", s)
+
+    def get_current_label(self):
+        if not hasattr(self, "_current_label_stack"):
+            raise AttributeError
+
+        s = getattr(self, "_current_label_stack")
+        return s[-1]
+
 
 @Pattern
 def py_emit(node: ast.AST, ctx: Context):
