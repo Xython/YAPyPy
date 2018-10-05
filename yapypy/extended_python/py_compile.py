@@ -7,8 +7,10 @@ _non_ctx: Context = Context.__new__(Context)
 def py_compile(node, filename='<unknown>', is_entrypoint=False):
     if isinstance(node, Tag):
         ctx = _non_ctx.enter_new(node.tag)
-        ctx.bc.name = '' if is_entrypoint else splitext(
+        ctx.bc.filename = filename
+        ctx.bc.name = '__main__' if is_entrypoint else splitext(
             Path(filename).relative())[1]
+
         ctx.bc.append(LOAD_GLOBAL('type'))
         ctx.bc.append(STORE_GLOBAL('.yapypy.type'))
         ctx.bc.append(LOAD_GLOBAL('locals'))
@@ -22,4 +24,4 @@ def py_compile(node, filename='<unknown>', is_entrypoint=False):
         return ctx.bc.to_code()
     else:
         tag = to_tagged_ast(node)
-        return py_compile(tag)
+        return py_compile(tag, filename, is_entrypoint=is_entrypoint)

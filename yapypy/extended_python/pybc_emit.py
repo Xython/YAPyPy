@@ -34,9 +34,13 @@ class Context(INamedList, metaclass=trait(as_namedlist)):
     cts: typing.FrozenSet[ContextType]
 
     def enter_new(self, tag_table: SymTable):
-
         sym_tb = IndexedAnalyzedSymTable.from_raw(tag_table)
         bc = Bytecode()
+        try:
+            bc.filename = self.bc.filename
+        except IndexError:
+            bc.filename = ""
+
         cts = tag_table.cts
 
         if ContextType.Annotation in cts and (ContextType.ClassDef in cts

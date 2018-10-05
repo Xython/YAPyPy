@@ -9,6 +9,7 @@ from rbnf.edsl.rbnf_analyze import check_parsing_complete
 from wisepy.talking import Talking
 
 from yapypy.extended_python.parser import parse as parse_ext_py
+from yapypy.extended_python.py_compile import py_compile
 
 python_ex = Talking()
 
@@ -20,7 +21,7 @@ def compile_ex_python_from_filename(filename):
     result.state.filename = filename
     check_parsing_complete(source_code, result.tokens, result.state)
     ast = result.result
-    code = compile(ast, filename, "exec")
+    code = py_compile(ast, filename, is_entrypoint=True)
     return code
 
 

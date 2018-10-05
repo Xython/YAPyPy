@@ -189,8 +189,8 @@ def py_emit(node: ast.ClassDef, ctx: Context):
     lineno = node.lineno
     col_offset = node.col_offset
     name = node.name
-
     parent_ctx: Context = ctx.parent
+
     ctx.bc.name = f'{parent_ctx.bc.name}.{name}' if parent_ctx.bc.name else name
 
     for decorator in getattr(node, 'decorator_list', ()):
@@ -202,7 +202,6 @@ def py_emit(node: ast.ClassDef, ctx: Context):
     ctx.bc.argcount = 0
     ctx.bc.kwonlyarbgcount = 0
     ctx.bc.argnames = ['.yapypy.args', '.yapypy.kwargs']
-    ctx.bc.name = name
 
     make_function_flags = 0
     ctx.bc.flags |= CompilerFlags.VARARGS

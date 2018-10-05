@@ -76,7 +76,8 @@ def dis_code(code: types.CodeType, f):
 
 def case(code, ctx, debug=False):
     stmt = parse(code).result
-    code_obj = py_compile(stmt)
+    code_obj = py_compile(stmt, is_entrypoint=True)
+
     if debug:
         code_obj2 = compile(code, "", "exec")
         with open('out_yapypy_bc.log', 'w') as yapypy_bc, open(
