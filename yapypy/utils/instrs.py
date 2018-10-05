@@ -179,3 +179,11 @@ def DUP_TOP_TWO(*, lineno=None):
 
 def POP_TOP(*, lineno=None):
     return Instr('POP_TOP', lineno=lineno)
+
+
+def SETUP_ANNOTATIONS(*, lineno=None):
+    return Instr('SETUP_ANNOTATIONS', lineno=lineno)
+
+
+def STORE_ANNOTATION(n, *, lineno=None):
+    return Instr('STORE_ANNOTATION', n, lineno=lineno)

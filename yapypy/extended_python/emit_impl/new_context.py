@@ -98,7 +98,7 @@ def emit_function(node: typing.Union[ast.AsyncFunctionDef, ast.FunctionDef],
 
     parent_ctx.bc.append(Instr('LOAD_CONST', inner_code, lineno=node.lineno))
 
-    ### when it comes to nested, the name is not generated correctly now.
+    # when it comes to nested, the name is not generated correctly now.
     parent_ctx.bc.append(Instr('LOAD_CONST', node.name, lineno=node.lineno))
 
     parent_ctx.bc.append(
