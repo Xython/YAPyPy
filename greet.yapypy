@@ -1,0 +1,11 @@
+class Greet:
+    @classmethod
+    def greet(cls):
+        print('hello world')
+
+    @classmethod
+    def destruct(cls, data: dict):
+        {'yapypy': yapypy} = data
+        return yapypy
+
+

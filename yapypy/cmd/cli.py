@@ -14,24 +14,24 @@ from yapypy.extended_python.py_compile import py_compile
 python_ex = Talking()
 
 
-def compile_ex_python_from_filename(filename):
+def compile_ex_python_from_filename(filename, is_entry_point=True):
     with Path(filename).open('r') as fr:
         source_code = fr.read()
         result = parse_ext_py(source_code)
     result.state.filename = filename
     check_parsing_complete(source_code, result.tokens, result.state)
     ast = result.result
-    code = py_compile(ast, filename, is_entrypoint=True)
+    code = py_compile(ast, filename, is_entrypoint=is_entry_point)
     return code
 
 
-def compile_ex_python_from_source(source_code):
-    filename = '<shell>'
+def compile_ex_python_from_source(source_code, is_entry_point=True):
+    filename = '<unknown>'
     result = parse_ext_py(source_code)
     result.state.filename = filename
     check_parsing_complete(source_code, result.tokens, result.state)
     ast = result.result
-    code = compile(ast, filename, "exec")
+    code = py_compile(ast, filename, is_entrypoint=is_entry_point)
     return code
 
 

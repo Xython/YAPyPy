@@ -91,13 +91,17 @@ def emit_function(
 
     if make_function_flags & 0x04:
         keys, annotation_values = zip(*annotations)
-        parent_ctx.bc.append(
-            Instr('LOAD_CONST', tuple(keys), lineno=node.lineno))
+
         for each in annotation_values:
             py_emit(each, parent_ctx)
+        parent_ctx.bc.append(
+            Instr('LOAD_CONST', tuple(keys), lineno=node.lineno))
 
         parent_ctx.bc.append(
-            Instr("BUILD_TUPLE", len(annotation_values), lineno=node.lineno))
+            Instr(
+                "BUILD_CONST_KEY_MAP",
+                len(annotation_values),
+                lineno=node.lineno))
 
     if make_function_flags & 0x08:
         new_ctx.load_closure(lineno=node.lineno)
