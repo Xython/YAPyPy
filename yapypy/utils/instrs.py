@@ -151,6 +151,10 @@ def GET_ITER(*, lineno=None):
     return Instr("GET_ITER", lineno=lineno)
 
 
+def FOR_ITER(label: Label, *, lineno=None):
+    return Instr("FOR_ITER", label, lineno=lineno)
+
+
 def POP_BLOCK(*, lineno=None):
     return Instr("POP_BLOCK", lineno=lineno)
 
