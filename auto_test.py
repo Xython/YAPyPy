@@ -1,16 +1,16 @@
 import ast
-import dis
-
-import pytest
 import unittest
-from astpretty import pprint
-from yapypy.extended_python.py_compile import py_compile
-from yapypy.extended_python.parser import parse
-from Redy.Tools.PathLib import Path
 from os.path import splitext
 from textwrap import dedent
-from bytecode import Bytecode
+
+import pytest
 import rbnf.zero as ze
+from Redy.Tools.PathLib import Path
+from bytecode import Bytecode
+
+from yapypy.extended_python.parser import parse
+from yapypy.extended_python.py_compile import py_compile
+
 ze_exp = ze.compile(
     r"""
 [python] import rbnf.std.common.[recover_codes]

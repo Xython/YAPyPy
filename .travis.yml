@@ -1,0 +1,11 @@
+sudo: false
+language: python
+python:
+  - "3.6"
+install:
+  - pip install -r requirements.txt
+  - pip install codecov
+script:
+  - tox
+after_success:
+  - codecov --token=822f86c3-65e2-40dd-b532-ee39861188d4
