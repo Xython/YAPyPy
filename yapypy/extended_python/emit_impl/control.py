@@ -126,7 +126,7 @@ def py_emit(node: ast.If, ctx: Context):
 @py_emit.case(ast.While)
 def py_emit(node: ast.While, ctx: Context):
     """
-    title: for
+    title: while
     prepare:
     >>> import unittest
     >>> self: unittest.TestCase

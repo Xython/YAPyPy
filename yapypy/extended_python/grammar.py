@@ -15,7 +15,8 @@ eval_input   ::= it=testlist NEWLINE* ENDMARKER -> Expression(it)
 decorator    ::= '@' exp=test NEWLINE                                                   -> exp
 decorated    ::= decorators=decorator+ it=(classdef | funcdef | async_funcdef)          -> it.decorator_list = list(decorators); return it
                 
-async_funcdef ::= mark='async' name=NAME args=parameters ['->' ret=test] ':' body=suite -> def_rewrite(mark, name, args, ret, body, is_async=True) 
+async_funcdef ::= mark='async' 
+                       'def' name=NAME args=parameters ['->' ret=test] ':' body=suite   -> def_rewrite(mark, name, args, ret, body, is_async=True) 
 funcdef       ::= mark='def' name=NAME args=parameters ['->' ret=test] ':' body=suite   -> def_rewrite(mark, name, args, ret, body)
 
 
@@ -135,8 +136,7 @@ term           ::= head=factor tail=term_tr*                            -> term_
 factor         ::= mark=('+'|'-'|'~') factor=factor | power=power       -> factor_rewrite(mark, factor, power)          
 
 power          ::= atom_expr=atom_expr ['**' factor=factor]             -> BinOp(atom_expr, Pow(), factor) if factor else  atom_expr
-atom_expr      ::= [a='await'] atom=atom trailers=trailer*
-                   -> atom_expr_rewrite(a, atom, trailers)
+atom_expr      ::= [a='await'] atom=atom trailers=trailer*              -> atom_expr_rewrite(a, atom, trailers)
 
 atom           ::= (is_gen ='(' [yield_expr=yield_expr|comp=testlist_comp] ')' |
                     is_list='[' [comp=testlist_comp]            ']' |

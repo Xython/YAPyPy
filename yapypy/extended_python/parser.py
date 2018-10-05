@@ -11,6 +11,7 @@ import ast
 import typing as t
 import io
 cast = ConstStrPool.cast_to_const
+kwlist = {*kwlist, 'async', 'await'}
 
 
 def to_rbnf_token(tk: tokenize.TokenInfo) -> Tokenizer:

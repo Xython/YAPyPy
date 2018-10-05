@@ -113,3 +113,8 @@ def py_emit(node: ast.Module, ctx: Context):
         py_emit(each, ctx)
     ctx.bc.append(Instr('LOAD_CONST', None))
     ctx.bc.append(Instr('RETURN_VALUE'))
+
+
+@py_emit.case(ex_ast.ConstantMapping)
+def py_emit(node: ex_ast.ConstantMapping, ctx: Context):
+    node.value(ctx)
