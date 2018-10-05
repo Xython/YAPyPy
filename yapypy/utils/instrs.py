@@ -197,6 +197,10 @@ def POP_TOP(*, lineno=None):
     return Instr('POP_TOP', lineno=lineno)
 
 
+def STORE_GLOBAL(name: str, *, lineno=None):
+    return Instr("STORE_GLOBAL", name, lineno=lineno)
+
+
 def SETUP_ANNOTATIONS(*, lineno=None):
     return Instr('SETUP_ANNOTATIONS', lineno=lineno)
 

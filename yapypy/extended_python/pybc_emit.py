@@ -5,7 +5,7 @@ import typing
 from typing import NamedTuple
 from astpretty import pprint
 import yapypy.extended_python.extended_ast as ex_ast
-from yapypy.extended_python.symbol_analyzer import SymTable, Tag, to_tagged_ast
+from yapypy.extended_python.symbol_analyzer import SymTable, Tag, to_tagged_ast, ContextType
 from yapypy.utils.namedlist import INamedList, as_namedlist, trait
 from yapypy.utils.instrs import *
 
@@ -31,25 +31,28 @@ class Context(INamedList, metaclass=trait(as_namedlist)):
     sym_tb: IndexedAnalyzedSymTable
     parent: 'Context'
     current_label_stack: list
-
-    def update(
-            self,
-            bc=None,
-            sym_tb=None,
-            parent=None,
-            current_label_stack=None,
-    ):
-        return Context(
-            bc if bc is not None else self.bc,
-            sym_tb if sym_tb is not None else self.sym_tb,
-            parent if parent is not None else self.parent,
-            current_label_stack or self.current_label_stack,
-        )
+    cts: typing.FrozenSet[ContextType]
 
     def enter_new(self, tag_table: SymTable):
+
         sym_tb = IndexedAnalyzedSymTable.from_raw(tag_table)
         bc = Bytecode()
-        bc.flags |= CompilerFlags.NEWLOCALS  # TODO
+        cts = tag_table.cts
+
+        if ContextType.Annotation in cts:
+            bc.append(SETUP_ANNOTATIONS())
+
+        if ContextType.Coroutine in cts:
+            if ContextType.Generator in cts:
+                bc.flags |= CompilerFlags.ASYNC_GENERATOR
+            else:
+                bc.flags |= CompilerFlags.COROUTINE
+        elif ContextType.Generator in cts:
+            bc.flags |= CompilerFlags.GENERATOR
+
+        # not elif for further designing(async lambda)
+
+        bc.flags |= CompilerFlags.NEWLOCALS
         if tag_table.depth > 1:
             bc.flags |= CompilerFlags.NESTED
 
@@ -59,8 +62,12 @@ class Context(INamedList, metaclass=trait(as_namedlist)):
             bc.freevars.extend(sym_tb.freevars)
 
         bc.cellvars.extend(sym_tb.cellvars)
-        return self.update(
-            parent=self, bc=bc, sym_tb=sym_tb, current_label_stack=[])
+        return Context(
+            parent=self,
+            bc=bc,
+            sym_tb=sym_tb,
+            current_label_stack=[],
+            cts=frozenset(cts))
 
     def load_name(self, name, lineno=None):
         sym_tb = self.sym_tb

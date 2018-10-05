@@ -157,10 +157,6 @@ def py_emit(node: ast.AnnAssign, ctx: Context):
     target = node.target
     value = node.value
 
-    # setup annotations.
-    # TODO: context should check annotations.
-    byte_code.append(SETUP_ANNOTATIONS())
-
     # load value
     py_emit(value, ctx)
     # store target

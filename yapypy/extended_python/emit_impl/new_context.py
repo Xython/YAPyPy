@@ -159,3 +159,8 @@ def py_emit(node: ast.Lambda, new_ctx: Context):
     >>> assert (lambda x: x * 10)(20) == 200
     """
     emit_function(node, new_ctx, is_async=False)
+
+
+@py_emit.case(ast.ClassDef)
+def py_emit(node: ast.ClassDef, ctx: Context):
+    raise NotImplementedError

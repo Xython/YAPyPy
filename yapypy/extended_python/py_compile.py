@@ -1,17 +1,13 @@
 from yapypy.extended_python.emit_impl import *
 
-_non_ctx: Context = None
+_non_ctx: Context = Context.__new__(Context)
 
 
 def py_compile(node, filename='<unknown>'):
     if isinstance(node, Tag):
-        ctx = Context(
-            Bytecode(),
-            IndexedAnalyzedSymTable.from_raw(node.tag),
-            _non_ctx,
-            [],
-        )
-
+        ctx = _non_ctx.enter_new(node.tag)
+        ctx.bc.append(LOAD_GLOBAL('type'))
+        ctx.bc.append(STORE_GLOBAL('.type'))
         try:
             py_emit(node.it, ctx)
         except SyntaxError as exc:
