@@ -16,6 +16,8 @@ def GET_ANEXT(*, lineno=None):
 def SETUP_EXCEPT(label: Label, *, lineno=None):
     return Instr("SETUP_EXCEPT", label, lineno=lineno)
 
+def SETUP_FINALLY(label: Label, *, lineno=None):
+    return Instr("SETUP_FINALLY", label, lineno=lineno)
 
 def YIELD_VALUE(*, lineno=None):
     return Instr("YIELD_VALUE", lineno=lineno)
