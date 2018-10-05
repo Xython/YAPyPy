@@ -5,10 +5,14 @@ Use the file `auto_test.py` in the same directory instead.
 """
 
 import ast
+import sys
+import types
+
 from astpretty import pprint
 from yapypy.extended_python.parser import parse
 from yapypy.extended_python.symbol_analyzer import ASTTagger, SymTable, to_tagged_ast, Tag
 from yapypy.extended_python.py_compile import py_compile
+from bytecode import Bytecode
 import dis
 
 
@@ -16,22 +20,6 @@ def parse_expr(expr_code):
     return parse(expr_code).result.body[0].value
 
 
-stmt = parse("""
-print(1)
-def f(x):
-    a = 1
-    def g(y):
-        a + 1
-        def u(z):
-            k = 1
-            v + k
-    v = 3
-    k = 4
-""").result
-
-res: Tag = to_tagged_ast(stmt)
-print(res.tag.show_resolution())
-#
 ctx = {}
 exec(
     r"""
@@ -45,7 +33,6 @@ class S:
             await sleep(0.1)
             return self.i
        raise StopAsyncIteration
-
 def to_t(aiter):
     async def _():
         d = []
@@ -53,18 +40,93 @@ def to_t(aiter):
             d.append(each)
         return tuple(d)
     return get_event_loop().run_until_complete(_())
-class S:
-    pass
+
 """, ctx)
-stmt = parse("""
-s = S()
-s.x = 1
-s.x += 1
-""").result
-# pprint(stmt)
-code = py_compile(stmt)
-dis.dis(code)
-exec(code, ctx)
+
+
+def show_code(code: types.CodeType, f, contains=()):
+    if code in contains:
+        return
+
+    f.write('\n\n\n')
+    f.write(code.co_name)
+    f.write(':\n\n')
+    dis.show_code(code, file=f)
+    for each in code.co_consts:
+        if isinstance(each, types.CodeType):
+            show_code(each, f, (*contains, code))
+
+
+def dis_code(code: types.CodeType, f):
+    f.write(code.co_name)
+    f.write('\n')
+    # def print(*args):
+    #     for each in args:
+    #         f.write(str(each))
+    #         f.write(' ')
+    #     f.write('\n')
+
+    dis.dis(code, file=f)
+    if sys.version_info < (3, 7):
+        # dump_bytecode(Bytecode.from_code(code), print=print)
+        for each in code.co_consts:
+            if isinstance(each, types.CodeType):
+                dis_code(each, f)
+
+
+def case(code, ctx, debug=False):
+    stmt = parse(code).result
+    code_obj = py_compile(stmt)
+    if debug:
+        code_obj2 = compile(code, "", "exec")
+        with open('out_yapypy_bc.log',
+                  'w') as yapypy_bc, open('out_yapypy_info.log',
+                                          'w') as yapypy_info, open(
+                                              'out_cpy_bc.log', 'w') as cpy_bc, open(
+                                                  'out_cpy_info.log', 'w') as cpy_info:
+
+            dis_code(code_obj, yapypy_bc)
+            show_code(code_obj, yapypy_info)
+            dis_code(code_obj2, cpy_bc)
+            show_code(code_obj2, cpy_info)
+
+        print('python:')
+        exec(Bytecode.from_code(code_obj2).to_code(), ctx or {})
+        print('yapypy')
+        exec(Bytecode.from_code(code_obj).to_code(), ctx or {})
+
+    else:
+        exec(code_obj, ctx)
+
+
+case(
+    """
+def f():
+    return ((i, i % 5) for i in range(30) if i > 3)
+print(tuple(f()))
+    """,
+    ctx,
+    debug=False)
+
+case(
+    """
+async def f():
+    return (i % 5 async for i in S())
+print(to_t(get_event_loop().run_until_complete(f())))
+    """,
+    ctx,
+    debug=False)
+
+case(
+    """
+async def f():
+    return {i % 5: i for k in range(2) async for i in S()}
+print(get_event_loop().run_until_complete(f()))
+    """,
+    ctx,
+    debug=True)
+
+# exec(code, ctx)
 # dis.dis(code.co_consts[0])
 # dis.dis(code.co_consts[1])
 
