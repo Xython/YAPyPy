@@ -1,9 +1,14 @@
-from yapypy.extended_python.parser import parse as parse_ext_py
-from rbnf.edsl.rbnf_analyze import check_parsing_complete
-from Redy.Tools.PathLib import Path
-from wisepy.talking import Talking
+import marshal
+import os
+import struct
+import time
 from importlib._bootstrap_external import MAGIC_NUMBER
-import marshal, struct, time, os
+
+from Redy.Tools.PathLib import Path
+from rbnf.edsl.rbnf_analyze import check_parsing_complete
+from wisepy.talking import Talking
+
+from yapypy.extended_python.parser import parse as parse_ext_py
 
 python_ex = Talking()
 

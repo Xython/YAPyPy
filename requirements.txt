@@ -1,0 +1,9 @@
+yapf
+pytest
+pytest-cov
+bytecode==0.7.0
+Redy
+rbnf>=0.3.21
+wisepy
+flake8
+tox

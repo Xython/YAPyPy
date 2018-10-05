@@ -32,17 +32,19 @@ class Context(INamedList, metaclass=trait(as_namedlist)):
     parent: 'Context'
     current_label_stack: list
 
-    def update(self,
-               bc=None,
-               sym_tb=None,
-               parent=None,
-               current_label_stack=None):
+    def update(
+            self,
+            bc=None,
+            sym_tb=None,
+            parent=None,
+            current_label_stack=None,
+    ):
         return Context(
             bc if bc is not None else self.bc,
             sym_tb if sym_tb is not None else self.sym_tb,
             parent if parent is not None else self.parent,
-            current_label_stack=current_label_stack
-            or self.current_label_stack)
+            current_label_stack or self.current_label_stack,
+        )
 
     def enter_new(self, tag_table: SymTable):
         sym_tb = IndexedAnalyzedSymTable.from_raw(tag_table)
@@ -96,17 +98,21 @@ class Context(INamedList, metaclass=trait(as_namedlist)):
     def load_closure(self, lineno=None):
         parent = self.parent
         freevars = self.sym_tb.freevars
-        if freevars:
-            for each in self.sym_tb.freevars:
-                if each in parent.sym_tb.cellvars:
-                    parent.bc.append(
-                        Instr('LOAD_CLOSURE', CellVar(each), lineno=lineno))
-                elif each in parent.sym_tb.borrowed_cellvars:
-                    parent.bc.append(
-                        Instr('LOAD_CLOSURE', FreeVar(each), lineno=lineno))
-                else:
-                    raise RuntimeError
-            parent.bc.append(Instr('BUILD_TUPLE', len(freevars)))
+
+        if freevars is None:
+            return
+
+        for each in self.sym_tb.freevars:
+            if each in parent.sym_tb.cellvars:
+                parent.bc.append(
+                    Instr('LOAD_CLOSURE', CellVar(each), lineno=lineno))
+            elif each in parent.sym_tb.borrowed_cellvars:
+                parent.bc.append(
+                    Instr('LOAD_CLOSURE', FreeVar(each), lineno=lineno))
+            else:
+                raise RuntimeError
+
+        parent.bc.append(Instr('BUILD_TUPLE', len(freevars)))
 
     def push_current_label(self, label: Label):
         self.current_label_stack.append(label)

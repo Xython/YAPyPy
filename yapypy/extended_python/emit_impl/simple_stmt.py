@@ -85,8 +85,8 @@ def py_emit(node: ast.AugAssign, ctx: Context):
             'STORE_DEREF': 'LOAD_DEREF',
             'STORE_GLOBAL': 'LOAD_GLOBAL',
             'STORE_NAME': 'LOAD_NAME',
-            'STORE_ATTR': 'LOAD_ATTR'
-        }[instr.name]
+            'STORE_ATTR': 'LOAD_ATTR',
+        }.get(instr.name)
         return Instr(opname, instr.arg, lineno=instr.lineno)
 
     target = node.target

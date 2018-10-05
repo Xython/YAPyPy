@@ -69,8 +69,12 @@ def py_emit(node: ast.If, ctx: Context):
 
     is_const = False
     kinds = [
-        ast.Constant, ast.Num, ast.Str, ast.Bytes, ast.Ellipsis,
-        ast.NameConstant
+        ast.Constant,
+        ast.Num,
+        ast.Str,
+        ast.Bytes,
+        ast.Ellipsis,
+        ast.NameConstant,
     ]
     is_const = any([isinstance(node.test, kind) for kind in kinds])
     if isinstance(node.test, ast.Name):
@@ -371,9 +375,10 @@ def py_emit(node: ast.With, ctx: Context):
     >>> a = -1
     >>> for i in range(10):
     >>>     with open(os.devnull, "w") as fp:
+    >>>         asssert a, fp.closed == -1, False
     >>>         a = i
     >>>         break
-    >>> assert a == 0
+    >>> asssert a, fp.closed == 0, True
     """
 
     flabel_stack = []

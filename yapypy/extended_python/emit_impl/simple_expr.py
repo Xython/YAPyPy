@@ -11,18 +11,18 @@ def py_emit(node: ast.Set, ctx: Context):
     """
     title: set
     prepare:
-    >>>
-
     test:
     >>> assert {1,2} == {1,2}
     >>> assert {1,*{2,3},*{3,4}} == {1,2,3,4}
     >>> assert {1, *{2, 3, 4}, 6, *{6, 7}, 8} == {1, 2, 3, 4, 6, 7, 8}
     """
+
     elts = node.elts
-    starreds = [ ]
+    starreds = list()
     n = 0
+
     for elt in elts:
-        if isinstance(elt,ast.Starred):
+        if isinstance(elt, ast.Starred):
             starreds += [elt]
         else:
             py_emit(elt, ctx)
@@ -30,8 +30,13 @@ def py_emit(node: ast.Set, ctx: Context):
     ctx.bc.append(BUILD_SET(n, lineno=node.lineno))
     for starred in starreds:
         py_emit(starred.value, ctx)
-    ctx.bc.append(Instr("BUILD_SET_UNPACK",len(starreds) + 1
-                        ,lineno=node.lineno))
+    ctx.bc.append(
+        Instr(
+            "BUILD_SET_UNPACK",
+            len(starreds) + 1,
+            lineno=node.lineno,
+        ),
+    )
 
 
 @py_emit.case(ast.Str)
@@ -78,15 +83,12 @@ def py_emit(node: ast.Slice, ctx: Context):
     >>> x = S()
     >>> assert x[1, 2:3] == 1
     >>> assert x[:3:2, 2] == 2
-
-
     """
     slices = [node.lower, node.upper, node.step]
     if not any(slices):
         ctx.bc.append(LOAD_CONST(None))
         ctx.bc.append(LOAD_CONST(None))
         ctx.bc.append(BUILD_SLICE(2))
-
         return
 
     n = max([i for i, piece in enumerate(slices) if piece is not None]) + 1
