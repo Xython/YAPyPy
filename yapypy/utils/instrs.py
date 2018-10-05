@@ -16,6 +16,8 @@ def GET_ANEXT(*, lineno=None):
 def SETUP_EXCEPT(label: Label, *, lineno=None):
     return Instr("SETUP_EXCEPT", label, lineno=lineno)
 
+def SETUP_FINALLY(label: Label, *, lineno=None):
+    return Instr("SETUP_FINALLY", label, lineno=lineno)
 
 def YIELD_VALUE(*, lineno=None):
     return Instr("YIELD_VALUE", lineno=lineno)
@@ -147,6 +149,10 @@ def JUMP_ABSOLUTE(label: Label, *, lineno=None):
 
 def GET_ITER(*, lineno=None):
     return Instr("GET_ITER", lineno=lineno)
+
+
+def FOR_ITER(label: Label, *, lineno=None):
+    return Instr("FOR_ITER", label, lineno=lineno)
 
 
 def POP_BLOCK(*, lineno=None):

@@ -55,15 +55,12 @@ def to_t(aiter):
     return get_event_loop().run_until_complete(_())
 """, ctx)
 stmt = parse("""
-
-async def f():
-    return ((i, i % 5) async for i in S() if i > 3)    
-
-print(to_t(get_event_loop().run_until_complete(f())))
+class S:
+    pass
 """).result
-
-code = py_compile(stmt)
-exec(code, ctx)
+pprint(stmt)
+# code = py_compile(stmt)
+# exec(code, ctx)
 # dis.dis(code.co_consts[0])
 # dis.dis(code.co_consts[1])
 

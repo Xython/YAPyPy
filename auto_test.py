@@ -115,6 +115,7 @@ class Test(unittest.TestCase):
                 fixer = FixLineno(lineno + test_code.count('\n'))
                 try:
                     node = parse(test_code).result
+                    # pprint(node)
                     fixer.visit(node)
                     code = py_compile(node)
                 except SyntaxError as exc:

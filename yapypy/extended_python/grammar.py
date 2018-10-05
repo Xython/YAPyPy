@@ -103,11 +103,11 @@ test           ::= it=(ifexp| lambdef)                                  -> it
 ifexp          ::= body=or_test ['if' test=or_test 'else' orelse=test]  -> IfExp(test, body, orelse) if orelse else body 
 test_nocond    ::= it=(or_test | lambdef_nocond)                        -> it         
 
-lambdef        ::= m='lambda' args=lam_args ':' body=test               -> Lambda(lam_args, body) 
-lambdef_nocond ::= m='lambda' args=lam_args ':' body=test_nocond        -> Lambda(lam_args, body)
+lambdef        ::= m='lambda' args=lam_args ':' body=test               -> Lambda(args, body) 
+lambdef_nocond ::= m='lambda' args=lam_args ':' body=test_nocond        -> Lambda(args, body)
 
-or_test        ::= head=and_test ('or' tail<<and_test)*                  -> BoolOp(Or(), [head, *tail])  if tail else head  
-and_test       ::= head=not_test ('and' tail<<not_test)*                 -> BoolOp(And(), [head, *tail]) if tail else head
+or_test        ::= head=and_test ('or' tail<<and_test)*                 -> BoolOp(Or(), [head, *tail])  if tail else head  
+and_test       ::= head=not_test ('and' tail<<not_test)*                -> BoolOp(And(), [head, *tail]) if tail else head
 not_test       ::= mark='not' expr=not_test | comp=comparison           -> UnaryOp(Not(), expr, **loc @ mark) if mark else comp 
 
 comparison     ::= left=expr (ops<<comp_op comparators<<expr)*          -> Compare(left, ops, comparators) if ops else left
@@ -150,7 +150,7 @@ atom           ::= (is_gen ='(' [yield_expr=yield_expr|comp=testlist_comp] ')' |
                        namedc='False')
                        -> atom_rewrite(loc, name, number, strs, namedc, ellipsis,  dict, is_dict, is_gen, is_list, comp, yield_expr)
                                           
-testlist_comp  ::= values<<(test|star_expr) ( comp=comp_for | (',' values<<(test|star_expr))* [','] )
+testlist_comp  ::= values<<(test|star_expr) ( comp=comp_for | (',' values<<(test|star_expr))* [force_tuple=','] )
                    ->
                      def app(is_tuple=None, is_list=None):
                         if is_list and comp:
@@ -160,7 +160,7 @@ testlist_comp  ::= values<<(test|star_expr) ( comp=comp_for | (',' values<<(test
                         elif comp:
                             return GeneratorExp(*values, comp)
                         else:
-                            return Tuple(values, Load())
+                            return values[0] if len(values) is 1 and not force_tuple else Tuple(values, Load())
                      app
 
 # `ExtSlice` is ignored here. We don't need this optimization for this project.
@@ -186,8 +186,8 @@ dictorsetmaker ::= (((keys<<test ':' values<<test | keys<<dict_unpack_s values<<
                     -> if not comp: return ExDict(keys, values, Load()) if keys else Set(values)
                        DictComp(*keys, *values, comp) if keys else SetComp(*values, comp)
 
-classdef ::= mark='class' name=NAME arglist=arglist ':' suite=suite
-             -> ClassDef(name.value, *split_args_helper(arglist), suite, [], **loc @ mark)
+classdef ::= mark='class' name=NAME [arglist=arglist]':' suite=suite
+             -> ClassDef(name.value, *split_args_helper(arglist or []), suite, [], **loc @ mark)
 
 arglist   ::= mark='(' [seq<<argument (',' seq<<argument)*  [',']] ')' -> check_call_args(loc @ mark, seq or [])
 
