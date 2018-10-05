@@ -3,6 +3,11 @@ from yapypy.extended_python.pybc_emit import *
 
 @py_emit.case(ast.Import)
 def py_emit(node: ast.Import, ctx: Context):
+    """
+    title: import
+    test:
+    >>> import os as os, sys
+    """
     byte_code: list = ctx.bc
     for name in node.names:
         byte_code.append(
@@ -30,6 +35,7 @@ def py_emit(node: ast.ImportFrom, ctx: Context):
     title: import from
     test:
      >>> from os.path import join
+     >>> from os import path as path
      >>> from os import *
      >>> from os.path import *
      >>> def f(x):

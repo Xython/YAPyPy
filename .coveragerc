@@ -12,3 +12,4 @@ ignore_errors = True
 omit =
     tests/*
     auto_test.py
+    yapypy/utils/*
