@@ -269,11 +269,31 @@ def py_emit(node: ast.DictComp, ctx: Context):
 @py_emit.case(ast.SetComp)
 def py_emit(node: ast.SetComp, ctx: Context):
     """
-    title SetComp
+    title: set comp
+    prepare:
+    >>> from asyncio import sleep, get_event_loop
+    >>> class S:
+    >>>   def __init__(self): self.i = 0
+    >>>   def __aiter__(self): return self
+    >>>   async def __anext__(self):
+    >>>        if self.i < 10:
+    >>>             self.i += 1
+    >>>             await sleep(0.05)
+    >>>             return self.i
+    >>>        raise StopAsyncIteration
     test:
     >>> print({ 2 for i in range(10)})
     >>> assert {i for i in range(10) if i % 2 if i > 6 } == { 7, 9 }
     >>> assert {(i, j) for i in range(10) if i < 8 for j in  range(5) if i % 2 if i > 6 } == {(7, 3), (7, 0), (7, 1), (7, 4), (7, 2)}
+    >>> async def f():
+    >>>     return {i async for i in S()}
+    >>> it = get_event_loop().run_until_complete(f())
+    >>> assert it == set({1: 1, 2: 2, 3: 3, 4: 4, 5: 5, 6: 6, 7: 7, 8: 8, 9: 9, 10: 10}.keys())
+    >>> async def f():
+    >>>     return {i % 5 async for i in S() if i > 3}
+    >>> it = get_event_loop().run_until_complete(f())
+    >>> assert it == {4, 0, 1, 2, 3, 4, 0}
+    >>> print('set comp finished')
     """
     ctx.bc.argnames.append('.0')
 
@@ -326,12 +346,30 @@ def py_emit(node: ast.SetComp, ctx: Context):
 @py_emit.case(ast.ListComp)
 def py_emit(node: ast.ListComp, ctx: Context):
     """
-    title: ListComp
+    title: list comp
     prepare:
-    >>>
+    >>> from asyncio import sleep, get_event_loop
+    >>> class S:
+    >>>   def __init__(self): self.i = 0
+    >>>   def __aiter__(self): return self
+    >>>   async def __anext__(self):
+    >>>        if self.i < 10:
+    >>>             self.i += 1
+    >>>             await sleep(0.05)
+    >>>             return self.i
+    >>>        raise StopAsyncIteration
     test:
     >>> assert [i for i in range(10)] == [0,1,2,3,4,5,6,7,8,9]
     >>> assert [(i,j) for i in range(2) for j in range(2)] == [(0, 0), (0, 1), (1, 0), (1, 1)]
+    >>> async def f():
+    >>>     return [i async for i in S()]
+    >>> it = get_event_loop().run_until_complete(f())
+    >>> assert it == list(range(1, 11))
+    >>> async def f():
+    >>>     return [i % 5 async for i in S() if i > 3]
+    >>> it = get_event_loop().run_until_complete(f())
+    >>> assert it == [4, 0 , 1, 2, 3, 4, 0]
+    >>> print('list comp finished')
     """
     ctx.bc.argnames.append('.0')
 

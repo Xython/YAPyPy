@@ -171,4 +171,13 @@ def py_emit(node: ast.AnnAssign, ctx: Context):
     target_type = type(target)
 
     if target_type is ast.Name:
-        byte_code.append(STORE_ANNOTATION(target.id, lineno=target.lineno))
+        if sys.version_info < (3, 7):
+            byte_code.append(STORE_ANNOTATION(target.id, lineno=target.lineno))
+        else:
+            byte_code.extend([
+                Instr('LOAD_NAME', '__annotations__'),
+                LOAD_CONST(target.id),
+                STORE_SUBSCR()
+            ])
+    else:
+        byte_code.append(POP_TOP(lineno=target.lineno))
