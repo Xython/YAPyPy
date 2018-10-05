@@ -79,11 +79,11 @@ def case(code, ctx, debug=False):
     code_obj = py_compile(stmt)
     if debug:
         code_obj2 = compile(code, "", "exec")
-        with open('_yapypy_bc',
-                  'w') as yapypy_bc, open('yapypy_info',
+        with open('out_yapypy_bc.log',
+                  'w') as yapypy_bc, open('out_yapypy_info.log',
                                           'w') as yapypy_info, open(
-                                              'cpy_bc', 'w') as cpy_bc, open(
-                                                  'cpy_info', 'w') as cpy_info:
+                                              'out_cpy_bc.log', 'w') as cpy_bc, open(
+                                                  'out_cpy_info.log', 'w') as cpy_info:
 
             dis_code(code_obj, yapypy_bc)
             show_code(code_obj, yapypy_info)
