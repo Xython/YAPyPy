@@ -1,8 +1,9 @@
 from yapypy.extended_python.pybc_emit import *
 
 
-def emit_function(node: typing.Union[ast.AsyncFunctionDef, ast.FunctionDef],
-                  new_ctx: Context, is_async: bool):
+def emit_function(
+        node: typing.Union[ast.AsyncFunctionDef, ast.FunctionDef, ast.Lambda],
+        new_ctx: Context, is_async: bool):
     """
         https://docs.python.org/3/library/dis.html#opcode-MAKE_FUNCTION
         MAKE_FUNCTION flags:
@@ -16,11 +17,19 @@ def emit_function(node: typing.Union[ast.AsyncFunctionDef, ast.FunctionDef],
         """
 
     parent_ctx: Context = new_ctx.parent
+
+    for decorator in getattr(node, 'decorator_list', ()):
+        py_emit(decorator, parent_ctx)
+
     if is_async:
         new_ctx.bc.flags |= CompilerFlags.COROUTINE
 
-    for each in node.body:
-        py_emit(each, new_ctx)
+    if isinstance(node, ast.Lambda):
+        py_emit(node.body, new_ctx)
+        new_ctx.bc.append(RETURN_VALUE(lineno=node.lineno))
+    else:
+        for each in node.body:
+            py_emit(each, new_ctx)
 
     args = node.args
     new_ctx.bc.argcount = len(args.args)
@@ -99,19 +108,54 @@ def emit_function(node: typing.Union[ast.AsyncFunctionDef, ast.FunctionDef],
     parent_ctx.bc.append(Instr('LOAD_CONST', inner_code, lineno=node.lineno))
 
     ### when it comes to nested, the name is not generated correctly now.
-    parent_ctx.bc.append(Instr('LOAD_CONST', node.name, lineno=node.lineno))
+    parent_ctx.bc.append(
+        Instr(
+            'LOAD_CONST',
+            getattr(node, 'name', '<lambda>'),
+            lineno=node.lineno))
 
     parent_ctx.bc.append(
         Instr("MAKE_FUNCTION", make_function_flags, lineno=node.lineno))
 
-    parent_ctx.store_name(node.name, lineno=node.lineno)
+    parent_ctx.bc.extend([CALL_FUNCTION(1, lineno=node.lineno)] * len(
+        getattr(node, 'decorator_list', ())))
+
+    if isinstance(node, ast.Lambda):
+        pass
+    else:
+        parent_ctx.store_name(node.name, lineno=node.lineno)
 
 
 @py_emit.case(ast.FunctionDef)
 def py_emit(node: ast.FunctionDef, new_ctx: Context):
+    """
+    title: function def
+    prepare:
+    >>> import unittest
+    >>> self: unittest.TestCase
+    test:
+    >>> def call(f):
+    >>>     return f()
+    >>> @call
+    >>> def f():
+    >>>     return 42
+    >>> self.assertEqual(f, 42)
+    """
     emit_function(node, new_ctx, is_async=False)
 
 
 @py_emit.case(ast.AsyncFunctionDef)
 def py_emit(node: ast.AsyncFunctionDef, new_ctx: Context):
     emit_function(node, new_ctx, is_async=True)
+
+
+@py_emit.case(ast.Lambda)
+def py_emit(node: ast.Lambda, new_ctx: Context):
+    """
+    title: lambda
+    test:
+    >>> print(lambda x: x + 1)
+    >>> assert (lambda x: x + 1)(1) == 2
+    >>> assert (lambda x: x * 10)(20) == 200
+    """
+    emit_function(node, new_ctx, is_async=False)
