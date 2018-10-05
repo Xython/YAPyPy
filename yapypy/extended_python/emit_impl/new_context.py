@@ -30,6 +30,9 @@ def emit_function(
         py_emit(node.body, new_ctx)
         new_ctx.bc.append(RETURN_VALUE(lineno=node.lineno))
     else:
+        head = node.body
+        if isinstance(head, ast.Expr) and isinstance(head.value, ast.Str):
+            new_ctx.bc.docstring = head.value.s
         for each in node.body:
             py_emit(each, new_ctx)
 
@@ -199,6 +202,10 @@ def py_emit(node: ast.ClassDef, ctx: Context):
 
     for decorator in getattr(node, 'decorator_list', ()):
         py_emit(decorator, parent_ctx)
+
+    head = node.body
+    if isinstance(head, ast.Expr) and isinstance(head.value, ast.Str):
+        ctx.bc.docstring = head.value.s
 
     for each in node.body:
         py_emit(each, ctx)
