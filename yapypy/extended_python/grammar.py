@@ -186,8 +186,8 @@ dictorsetmaker ::= (((keys<<test ':' values<<test | keys<<dict_unpack_s values<<
                     -> if not comp: return ExDict(keys, values, Load()) if keys else Set(values)
                        DictComp(*keys, *values, comp) if keys else SetComp(*values, comp)
 
-classdef ::= mark='class' name=NAME arglist=arglist ':' suite=suite
-             -> ClassDef(name.value, *split_args_helper(arglist), suite, [], **loc @ mark)
+classdef ::= mark='class' name=NAME [arglist=arglist]':' suite=suite
+             -> ClassDef(name.value, *split_args_helper(arglist or []), suite, [], **loc @ mark)
 
 arglist   ::= mark='(' [seq<<argument (',' seq<<argument)*  [',']] ')' -> check_call_args(loc @ mark, seq or [])
 
