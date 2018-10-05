@@ -67,7 +67,7 @@ def py_emit(node: ast.AugAssign, ctx: Context):
     >>> x = [1, 2, 3]
     >>> x[1 + 1] += 2
     >>> assert x[1 + 1]== 5
-prepare:
+
     >>> s = S()
     >>> s.x = 1
     >>> s.x += 1
@@ -89,11 +89,16 @@ prepare:
         }[instr.name]
         return Instr(opname, instr.arg, lineno=instr.lineno)
 
-    py_emit(node.target, ctx)
+    target = node.target
+    target_ty = type(target)
+    py_emit(target, ctx)
     to_move: Instr = ctx.bc.pop()
-    is_composed = isinstance(node.target, (ast.Attribute, ast.Subscript))
-    if is_composed:
+
+    is_composed = isinstance(target, (ast.Attribute, ast.Subscript))
+    if target_ty is ast.Subscript:
         ctx.bc.append(DUP_TOP_TWO())
+    elif target_ty is ast.Attribute:
+        ctx.bc.append(DUP_TOP())
 
     ctx.bc.append(lhs_to_rhs(to_move))
     py_emit(node.value, ctx)
@@ -115,6 +120,12 @@ prepare:
                 ast.Mod: "INPLACE_MODULO"
             }[type(node.op)],
             lineno=node.lineno))
-    if is_composed:
-        ctx.bc.append(ROT_THREE(lineno=node.lineno))
+
+    if target_ty is ast.Subscript:
+        rot_instr = ROT_THREE(lineno=node.target.lineno)
+        ctx.bc.append(rot_instr)
+    elif target_ty is ast.Attribute:
+        rot_instr = ROT_TWO(lineno=node.target.lineno)
+        ctx.bc.append(rot_instr)
+
     ctx.bc.append(to_move)

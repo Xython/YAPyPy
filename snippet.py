@@ -53,14 +53,18 @@ def to_t(aiter):
             d.append(each)
         return tuple(d)
     return get_event_loop().run_until_complete(_())
-""", ctx)
-stmt = parse("""
 class S:
     pass
+""", ctx)
+stmt = parse("""
+s = S()
+s.x = 1
+s.x += 1
 """).result
-pprint(stmt)
-# code = py_compile(stmt)
-# exec(code, ctx)
+# pprint(stmt)
+code = py_compile(stmt)
+dis.dis(code)
+exec(code, ctx)
 # dis.dis(code.co_consts[0])
 # dis.dis(code.co_consts[1])
 
