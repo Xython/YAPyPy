@@ -15,12 +15,17 @@ class ExprContextFixer(ast.NodeVisitor):
         node.ctx = self.ctx
         self.generic_visit(node)
 
+    def _store_ex_dict(self, node: ex_ast.ExDict):
+        node.ctx = self.ctx
+        for each in node.values:
+            self.visit(each)
+
     visit_Name = _store_simply
     visit_Subscript = _store_simply
     visit_Attribute = _store_simply
     visit_Tuple = _store_recursively
     visit_List = _store_recursively
-    visit_ExDict = _store_recursively
+    visit_ExDict = _store_ex_dict
     visit_Starred = _store_recursively
 
 

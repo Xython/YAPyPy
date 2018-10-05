@@ -25,6 +25,14 @@ def YIELD_VALUE(*, lineno=None):
     return Instr("YIELD_VALUE", lineno=lineno)
 
 
+def BUILD_MAP(n: int, *, lineno=None):
+    return Instr("BUILD_MAP", n, lineno=lineno)
+
+
+def BUILD_MAP_UNPACK(n: int, *, lineno=None):
+    return Instr("BUILD_MAP_UNPACK", n, lineno=lineno)
+
+
 def GET_AITER(*, lineno=None):
     return Instr("GET_AITER", lineno=lineno)
 
@@ -195,3 +203,23 @@ def SETUP_ANNOTATIONS(*, lineno=None):
 
 def STORE_ANNOTATION(n, *, lineno=None):
     return Instr('STORE_ANNOTATION', n, lineno=lineno)
+
+
+def duplicate_top_one(n: int):
+    if n <= 0:
+        return []
+    if n is 1:
+        return [DUP_TOP()]
+    if n is 2:
+        return [DUP_TOP(), DUP_TOP()]
+    if n is 3:
+        return [DUP_TOP(), DUP_TOP_TWO()]
+    else:
+        init_code = [DUP_TOP()]
+        for i in range((n - 2) // 2):
+            init_code.append(DUP_TOP_TWO())
+        if n % 2 == 0:
+            init_code.append(DUP_TOP())
+        else:
+            init_code.append(DUP_TOP_TWO())
+        return init_code
