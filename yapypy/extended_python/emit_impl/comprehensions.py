@@ -1,5 +1,5 @@
 from yapypy.extended_python.pybc_emit import *
-from bytecode import dump_bytecode
+import sys
 
 
 def _call(f):
@@ -8,86 +8,183 @@ def _call(f):
 
 _IsAsync = bool
 
+if sys.version_info >= (3, 7):
 
-def _emit_comprehension(ctx: Context,
-                        generators: typing.List[ast.comprehension],
-                        action) -> typing.Tuple[_IsAsync, ast.expr]:
-    labels = []
-    is_async_outside = False
-    first_iter: ast.expr
-    for idx, each in enumerate(generators):
-        begin_label, end_label = Label(), Label()
-        if each.is_async:
-            ctx.bc.flags |= CompilerFlags.COROUTINE
-            labels.append((True, begin_label, end_label))
-            exc_found, exc_before_final = Label(), Label()
-            if idx:
-                py_emit(each.iter, ctx)
+    def _emit_comprehension(ctx: Context,
+                            generators: typing.List[ast.comprehension],
+                            action) -> typing.Tuple[_IsAsync, ast.expr]:
+        labels = []
+        is_async_outside = False
+        first_iter: ast.expr
+        for idx, each in enumerate(generators):
+            begin_label, end_label = Label(), Label()
+            if each.is_async:
+                ctx.bc.flags |= CompilerFlags.COROUTINE
+                labels.append((True, begin_label, end_label))
+                exc_found, exc_before_final = Label(), Label()
+                if idx:
+                    py_emit(each.iter, ctx)
+                    ctx.bc.extend([
+                        begin_label,
+                        GET_AITER(),
+                        SETUP_EXCEPT(exc_found),
+                        GET_ANEXT(),
+                        LOAD_CONST(None),
+                        YIELD_FROM(),
+                    ])
+                else:
+                    is_async_outside = True
+                    first_iter = each.iter
+                    ctx.bc.append(LOAD_FAST('.0'))
+                    ctx.bc.extend([
+                        begin_label,
+                        SETUP_EXCEPT(exc_found),
+                        GET_ANEXT(),
+                        LOAD_CONST(None),
+                        YIELD_FROM(),
+                    ])
+
+                py_emit(each.target, ctx)
+                ctx.bc.extend([
+                    POP_BLOCK(),
+                    JUMP_FORWARD(exc_before_final),
+                    exc_found,
+                    DUP_TOP(),
+                    LOAD_GLOBAL("StopAsyncIteration"),
+                    COMPARE_OP(Compare.EXC_MATCH),
+                    POP_JUMP_IF_TRUE(end_label),
+                    END_FINALLY(),
+                    exc_before_final,
+                ])
+
             else:
-                is_async_outside = True
-                first_iter = each.iter
-                ctx.bc.append(LOAD_FAST('.0'))
+                labels.append((False, begin_label, end_label))
+                if idx:
+                    py_emit(each.iter, ctx)
+                    ctx.bc.append(Instr('GET_ITER'))
+                else:
+                    first_iter = each.iter
+                    ctx.bc.append(LOAD_FAST(".0"))
 
-            ctx.bc.extend([
-                begin_label,
-                SETUP_EXCEPT(exc_found),
-                GET_ANEXT(),
-                LOAD_CONST(None),
-                YIELD_FROM(),
-            ])
-            py_emit(each.target, ctx)
-            ctx.bc.extend([
-                POP_BLOCK(),
-                JUMP_FORWARD(exc_before_final),
-                exc_found,
-                DUP_TOP(),
-                LOAD_GLOBAL("StopAsyncIteration"),
-                COMPARE_OP(Compare.EXC_MATCH),
-                POP_JUMP_IF_TRUE(end_label),
-                END_FINALLY(),
-                exc_before_final,
-            ])
+                ctx.bc.append(begin_label)
+                ctx.bc.append(Instr('FOR_ITER', end_label))
+                py_emit(each.target, ctx)
+            if each.ifs:
+                for if_expr in each.ifs:
+                    py_emit(if_expr, ctx)
+                    ctx.bc.append(POP_JUMP_IF_FALSE(begin_label))
 
-        else:
-            labels.append((False, begin_label, end_label))
-            if idx:
-                py_emit(each.iter, ctx)
-                ctx.bc.append(Instr('GET_ITER'))
+        action()
+        # is serhiy-storchaka the god of Python?
+        # https://github.com/python/cpython/blob/702f8f3611bc49b73772cce2b9b041bd11ff9b35/Python/compile.c
+
+        while labels:
+            is_async_block, begin_label, end_label = labels.pop()
+            if is_async_block:
+                ctx.bc.extend([
+                    JUMP_ABSOLUTE(begin_label),
+                    end_label,
+                    POP_TOP(),
+                    POP_TOP(),
+                    POP_TOP(),
+                    POP_EXCEPT(),
+                    POP_TOP(),
+                ])
             else:
-                first_iter = each.iter
-                ctx.bc.append(LOAD_FAST(".0"))
+                ctx.bc.extend([
+                    JUMP_ABSOLUTE(begin_label),
+                    end_label,
+                ])
 
-            ctx.bc.append(begin_label)
-            ctx.bc.append(Instr('FOR_ITER', end_label))
-            py_emit(each.target, ctx)
-        if each.ifs:
-            for if_expr in each.ifs:
-                py_emit(if_expr, ctx)
-                ctx.bc.append(POP_JUMP_IF_FALSE(begin_label))
+        return is_async_outside, first_iter
+else:
 
-    action()
-    # is serhiy-storchaka the god of Python?
-    # https://github.com/python/cpython/blob/702f8f3611bc49b73772cce2b9b041bd11ff9b35/Python/compile.c
+    def _emit_comprehension(
+            ctx: Context, generators: typing.List[ast.comprehension], action):
+        labels = []
+        is_async_outside = False
+        first_iter: ast.expr
+        for idx, each in enumerate(generators):
+            begin_label, end_label = Label(), Label()
+            if each.is_async:
+                ctx.bc.flags |= CompilerFlags.COROUTINE
+                labels.append((True, begin_label, end_label))
+                exc_found, exc_before_final, final_label = Label(), Label(
+                ), Label()
+                if idx:
+                    py_emit(each.iter, ctx)
+                    ctx.bc.extend([
+                        begin_label,
+                        GET_AITER(),
+                        SETUP_EXCEPT(exc_found),
+                        GET_ANEXT(),
+                        LOAD_CONST(None),
+                        YIELD_FROM(),
+                    ])
+                else:
+                    is_async_outside = True
+                    first_iter = each.iter
+                    ctx.bc.append(LOAD_FAST('.0'))
 
-    while labels:
-        is_async_block, begin_label, end_label = labels.pop()
-        if is_async_block:
-            ctx.bc.extend([
-                JUMP_ABSOLUTE(begin_label),
-                end_label,
-                POP_TOP(),
-                POP_TOP(),
-                POP_TOP(),
-                POP_EXCEPT(),
-                POP_TOP(),
-            ])
-        else:
-            ctx.bc.extend([
-                JUMP_ABSOLUTE(begin_label),
-                end_label,
-            ])
+                    ctx.bc.extend([
+                        begin_label,
+                        SETUP_EXCEPT(exc_found),
+                        GET_ANEXT(),
+                        LOAD_CONST(None),
+                        YIELD_FROM(),
+                    ])
+                py_emit(each.target, ctx)
+                ctx.bc.extend([
+                    POP_BLOCK(),
+                    JUMP_FORWARD(final_label),
+                    exc_found,
+                    DUP_TOP(),
+                    LOAD_GLOBAL("StopAsyncIteration"),
+                    COMPARE_OP(Compare.EXC_MATCH),
+                    POP_JUMP_IF_FALSE(exc_before_final),
+                    POP_TOP(),
+                    POP_TOP(),
+                    POP_TOP(),
+                    POP_EXCEPT(),
+                    JUMP_ABSOLUTE(end_label),
+                    exc_before_final,
+                    END_FINALLY(),
+                    final_label,
+                ])
+            else:
+                labels.append((False, begin_label, end_label))
+                if idx:
+                    py_emit(each.iter, ctx)
+                    ctx.bc.append(Instr('GET_ITER'))
+                else:
+                    first_iter = each.iter
+                    ctx.bc.append(LOAD_FAST(".0"))
 
-    return is_async_outside, first_iter
+                ctx.bc.append(begin_label)
+                ctx.bc.append(Instr('FOR_ITER', end_label))
+                py_emit(each.target, ctx)
+
+            if each.ifs:
+                for if_expr in each.ifs:
+                    py_emit(if_expr, ctx)
+                    ctx.bc.append(POP_JUMP_IF_FALSE(begin_label))
+
+        action()
+
+        while labels:
+            is_async, begin_label, end_label = labels.pop()
+
+            @ctx.bc.extend
+            @_call
+            def _():
+                yield from [
+                    JUMP_ABSOLUTE(begin_label),
+                    end_label,
+                ]
+                if is_async:
+                    yield POP_TOP()
+
+        return is_async_outside, first_iter
 
 
 @py_emit.case(ast.DictComp)
@@ -135,14 +232,10 @@ def py_emit(node: ast.DictComp, ctx: Context):
                                                        delay)
 
     ctx.bc.append(RETURN_VALUE(lineno=node.lineno))
-
     flags = 0
     if ctx.sym_tb.freevars:
         flags = 0x08
         ctx.load_closure()
-
-    if is_async_outside:
-        ctx.bc.flags |= CompilerFlags.COROUTINE
 
     inner_code = ctx.bc.to_code()
     parent.bc.append(LOAD_CONST(inner_code))
@@ -150,25 +243,27 @@ def py_emit(node: ast.DictComp, ctx: Context):
     parent.bc.append(MAKE_FUNCTION(flags))
 
     py_emit(first_iter, parent)
+
     if is_async_outside:
 
         @parent.bc.extend
         @_call
         def _():
-            return [
-                GET_AITER(),
-                CALL_FUNCTION(1),
-                GET_AWAITABLE(),
-                LOAD_CONST(None),
-                YIELD_FROM()
-            ]
-
+            yield GET_AITER()
+            if sys.version_info < (3, 7):
+                yield from [LOAD_CONST(None), YIELD_FROM()]
+            yield CALL_FUNCTION(1)
     else:
+        parent.bc.extend([GET_ITER(), CALL_FUNCTION(1)])
 
-        @parent.bc.extend
-        @_call
-        def _():
-            return [GET_ITER(), CALL_FUNCTION(1)]
+    # check is it coroutine
+
+    if ctx.bc.flags & CompilerFlags.COROUTINE:
+        parent.bc.extend([
+            GET_AWAITABLE(),
+            LOAD_CONST(None),
+            YIELD_FROM(),
+        ])
 
 
 @py_emit.case(ast.SetComp)
@@ -200,9 +295,6 @@ def py_emit(node: ast.SetComp, ctx: Context):
         flags = 0x08
         ctx.load_closure()
 
-    if is_async_outside:
-        ctx.bc.flags |= CompilerFlags.COROUTINE
-
     inner_code = ctx.bc.to_code()
     parent.bc.append(LOAD_CONST(inner_code))
     parent.bc.append(LOAD_CONST(f'{ctx.bc.name}.<locals>.<setcomp>'))
@@ -214,20 +306,21 @@ def py_emit(node: ast.SetComp, ctx: Context):
         @parent.bc.extend
         @_call
         def _():
-            return [
-                GET_AITER(),
-                CALL_FUNCTION(1),
-                GET_AWAITABLE(),
-                LOAD_CONST(None),
-                YIELD_FROM()
-            ]
-
+            yield GET_AITER()
+            if sys.version_info < (3, 7):
+                yield from [LOAD_CONST(None), YIELD_FROM()]
+            yield CALL_FUNCTION(1)
     else:
+        parent.bc.extend([GET_ITER(), CALL_FUNCTION(1)])
 
-        @parent.bc.extend
-        @_call
-        def _():
-            return [GET_ITER(), CALL_FUNCTION(1)]
+    # check is it coroutine
+
+    if ctx.bc.flags & CompilerFlags.COROUTINE:
+        parent.bc.extend([
+            GET_AWAITABLE(),
+            LOAD_CONST(None),
+            YIELD_FROM(),
+        ])
 
 
 @py_emit.case(ast.ListComp)
@@ -260,34 +353,33 @@ def py_emit(node: ast.ListComp, ctx: Context):
         flags = 0x08
         ctx.load_closure()
 
-    if is_async_outside:
-        ctx.bc.flags |= CompilerFlags.COROUTINE
-
     inner_code = ctx.bc.to_code()
     parent.bc.append(LOAD_CONST(inner_code))
     parent.bc.append(LOAD_CONST(f'{ctx.bc.name}.<locals>.<listcomp>'))
     parent.bc.append(MAKE_FUNCTION(flags))
 
     py_emit(first_iter, parent)
+
     if is_async_outside:
 
         @parent.bc.extend
         @_call
         def _():
-            return [
-                GET_AITER(),
-                CALL_FUNCTION(1),
-                GET_AWAITABLE(),
-                LOAD_CONST(None),
-                YIELD_FROM()
-            ]
-
+            yield GET_AITER()
+            if sys.version_info < (3, 7):
+                yield from [LOAD_CONST(None), YIELD_FROM()]
+            yield CALL_FUNCTION(1)
     else:
+        parent.bc.extend([GET_ITER(), CALL_FUNCTION(1)])
 
-        @parent.bc.extend
-        @_call
-        def _():
-            return [GET_ITER(), CALL_FUNCTION(1)]
+    # check is it coroutine
+
+    if ctx.bc.flags & CompilerFlags.COROUTINE:
+        parent.bc.extend([
+            GET_AWAITABLE(),
+            LOAD_CONST(None),
+            YIELD_FROM(),
+        ])
 
 
 @py_emit.case(ast.GeneratorExp)
@@ -370,10 +462,14 @@ prepare:
         @parent.bc.extend
         @_call
         def _():
-            return [
-                GET_AITER(),
-                CALL_FUNCTION(1),
-            ]
+            yield GET_AITER()
+
+            if sys.version_info < (3, 7):
+                yield from [
+                    LOAD_CONST(None),
+                    YIELD_FROM(),
+                ]
+            yield CALL_FUNCTION(1)
 
     else:
 

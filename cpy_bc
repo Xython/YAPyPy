@@ -1,61 +1,64 @@
 <module>
-  2           0 LOAD_CONST               0 (<code object f at 0x00000222CEE90A50, file "", line 2>)
+  2           0 LOAD_CONST               0 (<code object f at 0x0000028E5C631420, file "", line 2>)
               2 LOAD_CONST               1 ('f')
               4 MAKE_FUNCTION            0
               6 STORE_NAME               0 (f)
 
-  5           8 LOAD_NAME                1 (print)
-             10 LOAD_NAME                2 (get_event_loop)
-             12 CALL_FUNCTION            0
-             14 LOAD_METHOD              3 (run_until_complete)
-             16 LOAD_NAME                0 (f)
-             18 CALL_FUNCTION            0
-             20 CALL_METHOD              1
-             22 CALL_FUNCTION            1
-             24 POP_TOP
-             26 LOAD_CONST               2 (None)
-             28 RETURN_VALUE
+  4           8 LOAD_NAME                1 (print)
+             10 LOAD_NAME                2 (to_t)
+             12 LOAD_NAME                3 (get_event_loop)
+             14 CALL_FUNCTION            0
+             16 LOAD_METHOD              4 (run_until_complete)
+             18 LOAD_NAME                0 (f)
+             20 CALL_FUNCTION            0
+             22 CALL_METHOD              1
+             24 CALL_FUNCTION            1
+             26 CALL_FUNCTION            1
+             28 POP_TOP
+             30 LOAD_CONST               2 (None)
+             32 RETURN_VALUE
 
-Disassembly of <code object f at 0x00000222CEE90A50, file "", line 2>:
-  3           0 LOAD_CONST               1 (<code object <genexpr> at 0x00000222CEE904B0, file "", line 3>)
+Disassembly of <code object f at 0x0000028E5C631420, file "", line 2>:
+  3           0 LOAD_CONST               1 (<code object <genexpr> at 0x0000028E5C631930, file "", line 3>)
               2 LOAD_CONST               2 ('f.<locals>.<genexpr>')
               4 MAKE_FUNCTION            0
+              6 LOAD_GLOBAL              0 (range)
+              8 LOAD_CONST               3 (2)
+             10 CALL_FUNCTION            1
+             12 GET_ITER
+             14 CALL_FUNCTION            1
+             16 RETURN_VALUE
+
+Disassembly of <code object <genexpr> at 0x0000028E5C631930, file "", line 3>:
+  3           0 LOAD_FAST                0 (.0)
+        >>    2 FOR_ITER                56 (to 60)
+              4 STORE_FAST               1 (k)
               6 LOAD_GLOBAL              0 (S)
               8 CALL_FUNCTION            0
              10 GET_AITER
-             12 CALL_FUNCTION            1
-             14 RETURN_VALUE
-
-Disassembly of <code object <genexpr> at 0x00000222CEE904B0, file "", line 3>:
-  3           0 LOAD_FAST                0 (.0)
-        >>    2 SETUP_EXCEPT            12 (to 16)
-              4 GET_ANEXT
-              6 LOAD_CONST               0 (None)
-              8 YIELD_FROM
-             10 STORE_FAST               1 (i)
-             12 POP_BLOCK
-             14 JUMP_FORWARD            10 (to 26)
-        >>   16 DUP_TOP
-             18 LOAD_GLOBAL              0 (StopAsyncIteration)
-             20 COMPARE_OP              10 (exception match)
-             22 POP_JUMP_IF_TRUE        50
-             24 END_FINALLY
-        >>   26 LOAD_FAST                1 (i)
-             28 LOAD_CONST               1 (3)
-             30 COMPARE_OP               4 (>)
-             32 POP_JUMP_IF_FALSE        2
-             34 LOAD_FAST                1 (i)
-             36 LOAD_FAST                1 (i)
-             38 LOAD_CONST               2 (5)
+        >>   12 SETUP_EXCEPT            12 (to 26)
+             14 GET_ANEXT
+             16 LOAD_CONST               0 (None)
+             18 YIELD_FROM
+             20 STORE_FAST               2 (i)
+             22 POP_BLOCK
+             24 JUMP_FORWARD            10 (to 36)
+        >>   26 DUP_TOP
+             28 LOAD_GLOBAL              1 (StopAsyncIteration)
+             30 COMPARE_OP              10 (exception match)
+             32 POP_JUMP_IF_TRUE        48
+             34 END_FINALLY
+        >>   36 LOAD_FAST                2 (i)
+             38 LOAD_CONST               1 (5)
              40 BINARY_MODULO
-             42 BUILD_TUPLE              2
-             44 YIELD_VALUE
-             46 POP_TOP
-             48 JUMP_ABSOLUTE            2
-        >>   50 POP_TOP
+             42 YIELD_VALUE
+             44 POP_TOP
+             46 JUMP_ABSOLUTE           12
+        >>   48 POP_TOP
+             50 POP_TOP
              52 POP_TOP
-             54 POP_TOP
-             56 POP_EXCEPT
-             58 POP_TOP
-             60 LOAD_CONST               0 (None)
+             54 POP_EXCEPT
+             56 POP_TOP
+             58 JUMP_ABSOLUTE            2
+        >>   60 LOAD_CONST               0 (None)
              62 RETURN_VALUE
