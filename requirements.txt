@@ -5,3 +5,4 @@ Redy
 rbnf>=0.3.21
 wisepy
 flake8
+tox
