@@ -30,11 +30,19 @@ class Context(INamedList, metaclass=trait(as_namedlist)):
     bc: Bytecode
     sym_tb: IndexedAnalyzedSymTable
     parent: 'Context'
+    current_label_stack: list
 
-    def update(self, bc=None, sym_tb=None, parent=None):
-        return Context(bc if bc is not None else self.bc,
-                       sym_tb if sym_tb is not None else self.sym_tb,
-                       parent if parent is not None else self.parent)
+    def update(self,
+               bc=None,
+               sym_tb=None,
+               parent=None,
+               current_label_stack=None):
+        return Context(
+            bc if bc is not None else self.bc,
+            sym_tb if sym_tb is not None else self.sym_tb,
+            parent if parent is not None else self.parent,
+            current_label_stack=current_label_stack
+            or self.current_label_stack)
 
     def enter_new(self, tag_table: SymTable):
         sym_tb = IndexedAnalyzedSymTable.from_raw(tag_table)
@@ -49,7 +57,8 @@ class Context(INamedList, metaclass=trait(as_namedlist)):
             bc.freevars.extend(sym_tb.freevars)
 
         bc.cellvars.extend(sym_tb.cellvars)
-        return self.update(parent=self, bc=bc, sym_tb=sym_tb)
+        return self.update(
+            parent=self, bc=bc, sym_tb=sym_tb, current_label_stack=[])
 
     def load_name(self, name, lineno=None):
         sym_tb = self.sym_tb
@@ -100,27 +109,13 @@ class Context(INamedList, metaclass=trait(as_namedlist)):
             parent.bc.append(Instr('BUILD_TUPLE', len(freevars)))
 
     def push_current_label(self, label: Label):
-        if not hasattr(self, "_current_label_stack"):
-            setattr(self, "_current_label_stack", [])
-
-        s = getattr(self, "_current_label_stack")
-        s.append(label)
-        setattr(self, "_current_label_stack", s)
+        self.current_label_stack.append(label)
 
     def pop_current_label(self):
-        if not hasattr(self, "_current_label_stack"):
-            raise AttributeError
-
-        s = getattr(self, "_current_label_stack")
-        s.pop()
-        setattr(self, "_current_label_stack", s)
+        return self.current_label_stack.pop()
 
     def get_current_label(self):
-        if not hasattr(self, "_current_label_stack"):
-            raise AttributeError
-
-        s = getattr(self, "_current_label_stack")
-        return s[-1]
+        return self.current_label_stack[-1]
 
 
 @Pattern
