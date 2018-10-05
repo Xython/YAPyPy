@@ -18,6 +18,7 @@ def _emit_comprehension(ctx: Context,
     for idx, each in enumerate(generators):
         begin_label, end_label = Label(), Label()
         if each.is_async:
+            ctx.bc.flags |= CompilerFlags.COROUTINE
             labels.append((True, begin_label, end_label))
             exc_found, exc_before_final = Label(), Label()
             if idx:
@@ -55,6 +56,7 @@ def _emit_comprehension(ctx: Context,
             else:
                 first_iter = each.iter
                 ctx.bc.append(LOAD_FAST(".0"))
+
             ctx.bc.append(begin_label)
             ctx.bc.append(Instr('FOR_ITER', end_label))
             py_emit(each.target, ctx)
@@ -291,26 +293,25 @@ def py_emit(node: ast.ListComp, ctx: Context):
 @py_emit.case(ast.GeneratorExp)
 def py_emit(node: ast.GeneratorExp, ctx: Context):
     """
-    title: gen exp
-    prepare:
-    >>> from asyncio import sleep, get_event_loop
-    >>> class S:
-    >>>   def __init__(self):
-    >>>         self.i = 0
-    >>>   def __iter__(self): return self
-    >>>   async def __anext__(self):
-    >>>        if self.i < 10:
-    >>>             self.i += 1
-    >>>             await sleep(0.05)
-    >>>             return self.i
-    >>>        raise StopAsyncIteration
-    >>> def to_t(aiter):
-    >>>     async def _():
-    >>>         d = []
-    >>>         async for each in aiter:
-    >>>             d.append(each)
-    >>>         return tuple(d)
-    >>>     return get_event_loop().run_until_complete(_())
+title: gen exp
+prepare:
+    >>>from asyncio import sleep, get_event_loop
+    >>>class S:
+    >>>  def __init__(self): self.i = 0
+    >>>  def __aiter__(self): return self
+    >>>  async def __anext__(self):
+    >>>       if self.i < 10:
+    >>>            self.i += 1
+    >>>            await sleep(0.1)
+    >>>            return self.i
+    >>>       raise StopAsyncIteration
+    >>>def to_t(aiter):
+    >>>    async def _():
+    >>>        d = []
+    >>>        async for each in aiter:
+    >>>            d.append(each)
+    >>>        return tuple(d)
+    >>>    return get_event_loop().run_until_complete(_())
 
     test:
     >>> print({1: 2 for i in range(10)})
@@ -324,7 +325,6 @@ def py_emit(node: ast.GeneratorExp, ctx: Context):
     >>>     return ((i, i % 5) async for i in S() if i > 3)
     >>> it = to_t(get_event_loop().run_until_complete(f()))
     >>> assert tuple(it) == ((4, 4), (5, 0), (6, 1), (7, 2), (8, 3), (9, 4), (10, 0))
-
 
     """
 
@@ -353,8 +353,11 @@ def py_emit(node: ast.GeneratorExp, ctx: Context):
         flags = 0x08
         ctx.load_closure()
 
-    if is_async_outside:
+    if ctx.bc.flags & CompilerFlags.COROUTINE:
         ctx.bc.flags |= CompilerFlags.ASYNC_GENERATOR
+        ctx.bc.flags ^= CompilerFlags.COROUTINE
+    else:
+        ctx.bc.flags |= CompilerFlags.GENERATOR
 
     inner_code = ctx.bc.to_code()
     parent.bc.append(LOAD_CONST(inner_code))

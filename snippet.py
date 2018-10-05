@@ -169,16 +169,17 @@ def dis_code(code: types.CodeType, f):
     f.write(code.co_name)
     f.write('\n')
 
-    def print(*args):
-        for each in args:
-            f.write(str(each))
-            f.write(' ')
-        f.write('\n')
+    # def print(*args):
+    #     for each in args:
+    #         f.write(str(each))
+    #         f.write(' ')
+    #     f.write('\n')
 
-    dump_bytecode(Bytecode.from_code(code), print=print)
-    for each in code.co_consts:
-        if isinstance(each, types.CodeType):
-            dis_code(each, f)
+    dis.dis(code, file=f)
+    # dump_bytecode(Bytecode.from_code(code), print=print)
+    # for each in code.co_consts:
+    #     if isinstance(each, types.CodeType):
+    #         dis_code(each, f)
 
 
 def case(code, ctx, debug=False):
@@ -198,9 +199,9 @@ def case(code, ctx, debug=False):
             show_code(code_obj2, cpy_info)
 
         print('python:')
-        exec(Bytecode.from_code(code_obj2).to_code())
+        exec(Bytecode.from_code(code_obj2).to_code(), ctx or {})
         print('yapypy')
-        exec(Bytecode.from_code(code_obj).to_code())
+        exec(Bytecode.from_code(code_obj).to_code(), ctx or {})
 
     else:
         exec(code_obj, ctx)
@@ -208,21 +209,31 @@ def case(code, ctx, debug=False):
 
 case(
     """
+print({1: 2 for i in range(10)})
+assert tuple(i for i in range(10) if i % 2 if i > 6) == (7, 9)
+assert tuple((i, j) for i in range(10) if i < 8 for j in  range(5) if i % 2 if i > 6 ) == ((7, 0), (7, 1), (7, 2), (7, 3), (7, 4))
 async def f():
-    return (i % 5 async for i in S() if i > 3)    
-print(to_t(get_event_loop().run_until_complete(f())))
+    return (i async for i in S())
+
+it = to_t(get_event_loop().run_until_complete(f()))
+assert dict(zip(it, it)) == {1: 1, 2: 2, 3: 3, 4: 4, 5: 5, 6: 6, 7: 7, 8: 8, 9: 9, 10: 10}
+async def f():
+    return ((i, i % 5) async for i in S() if i > 3)
+it = to_t(get_event_loop().run_until_complete(f()))
+assert tuple(it) == ((4, 4), (5, 0), (6, 1), (7, 2), (8, 3), (9, 4), (10, 0))
+print(it)
     """,
     ctx,
     debug=False)
 
-case(
-    """
-def f():
-    return tuple(i for i in range(10) if i % 2 if i > 6)
-print(f())
-    """,
-    ctx,
-    debug=True)
+# case(
+#     """
+# async def f():
+#     return (i % 5 async for i in S() if i > 3)
+# print(to_t(get_event_loop().run_until_complete(f())))
+#     """,
+#     ctx,
+#     debug=False)
 
 # exec(code, ctx)
 # dis.dis(code.co_consts[0])

@@ -8,15 +8,17 @@ Filename:
 Argument count:    0
 Kw-only arguments: 0
 Number of locals:  0
-Stack size:        2
+Stack size:        4
 Flags:             NOFREE
 Constants:
-   0: <code object f at 0x000001DFB2ED0DB0, file "", line 2>
+   0: <code object f at 0x00000222CEE90A50, file "", line 2>
    1: 'f'
    2: None
 Names:
    0: f
    1: print
+   2: get_event_loop
+   3: run_until_complete
 
 
 
@@ -27,16 +29,14 @@ Filename:
 Argument count:    0
 Kw-only arguments: 0
 Number of locals:  0
-Stack size:        4
-Flags:             OPTIMIZED, NEWLOCALS, NOFREE
+Stack size:        2
+Flags:             OPTIMIZED, NEWLOCALS, NOFREE, COROUTINE
 Constants:
    0: None
-   1: <code object <genexpr> at 0x000001DFB2ED0AE0, file "", line 3>
+   1: <code object <genexpr> at 0x00000222CEE904B0, file "", line 3>
    2: 'f.<locals>.<genexpr>'
-   3: 10
 Names:
-   0: tuple
-   1: range
+   0: S
 
 
 
@@ -47,12 +47,14 @@ Filename:
 Argument count:    1
 Kw-only arguments: 0
 Number of locals:  2
-Stack size:        3
-Flags:             OPTIMIZED, NEWLOCALS, NESTED, GENERATOR, NOFREE
+Stack size:        9
+Flags:             OPTIMIZED, NEWLOCALS, NESTED, NOFREE, ASYNC_GENERATOR
 Constants:
-   0: 2
-   1: 6
-   2: None
+   0: None
+   1: 3
+   2: 5
+Names:
+   0: StopAsyncIteration
 Variable names:
    0: .0
    1: i

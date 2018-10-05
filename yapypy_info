@@ -8,15 +8,17 @@ Filename:          <string>
 Argument count:    0
 Kw-only arguments: 0
 Number of locals:  0
-Stack size:        2
+Stack size:        3
 Flags:             NOFREE
 Constants:
-   0: <code object <module> at 0x000001DFB2ED0540, file "<string>", line 1>
+   0: <code object <module> at 0x00000222CE9920C0, file "<string>", line 1>
    1: 'f'
    2: None
 Names:
    0: f
    1: print
+   2: get_event_loop
+   3: run_until_complete
 
 
 
@@ -27,16 +29,14 @@ Filename:          <string>
 Argument count:    0
 Kw-only arguments: 0
 Number of locals:  0
-Stack size:        4
-Flags:             NEWLOCALS, NOFREE
+Stack size:        2
+Flags:             NEWLOCALS, NOFREE, COROUTINE
 Constants:
-   0: <code object <module> at 0x000001DFB29A0390, file "<string>", line 1>
+   0: <code object <module> at 0x00000222CE992270, file "<string>", line 1>
    1: '<module>.<locals>.<genexp>'
-   2: 10
-   3: None
+   2: None
 Names:
-   0: tuple
-   1: range
+   0: S
 
 
 
@@ -47,12 +47,14 @@ Filename:          <string>
 Argument count:    1
 Kw-only arguments: 0
 Number of locals:  2
-Stack size:        3
-Flags:             NEWLOCALS, NESTED, NOFREE
+Stack size:        12
+Flags:             NEWLOCALS, NESTED, NOFREE, ASYNC_GENERATOR
 Constants:
-   0: 2
-   1: 6
-   2: None
+   0: None
+   1: 3
+   2: 5
+Names:
+   0: StopAsyncIteration
 Variable names:
    0: .0
    1: i

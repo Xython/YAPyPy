@@ -1,49 +1,61 @@
 <module>
-    LOAD_CONST <code object f at 0x000001DFB2ED0DB0, file "", line 2> 
-    LOAD_CONST 'f' 
-    MAKE_FUNCTION 0 
-    STORE_NAME 'f' 
-    LOAD_NAME 'print' 
-    LOAD_NAME 'f' 
-    CALL_FUNCTION 0 
-    CALL_FUNCTION 1 
-    POP_TOP 
-    LOAD_CONST None 
-    RETURN_VALUE 
+  2           0 LOAD_CONST               0 (<code object f at 0x00000222CEE90A50, file "", line 2>)
+              2 LOAD_CONST               1 ('f')
+              4 MAKE_FUNCTION            0
+              6 STORE_NAME               0 (f)
 
-f
-    LOAD_GLOBAL 'tuple' 
-    LOAD_CONST <code object <genexpr> at 0x000001DFB2ED0AE0, file "", line 3> 
-    LOAD_CONST 'f.<locals>.<genexpr>' 
-    MAKE_FUNCTION 0 
-    LOAD_GLOBAL 'range' 
-    LOAD_CONST 10 
-    CALL_FUNCTION 1 
-    GET_ITER 
-    CALL_FUNCTION 1 
-    CALL_FUNCTION 1 
-    RETURN_VALUE 
+  5           8 LOAD_NAME                1 (print)
+             10 LOAD_NAME                2 (get_event_loop)
+             12 CALL_FUNCTION            0
+             14 LOAD_METHOD              3 (run_until_complete)
+             16 LOAD_NAME                0 (f)
+             18 CALL_FUNCTION            0
+             20 CALL_METHOD              1
+             22 CALL_FUNCTION            1
+             24 POP_TOP
+             26 LOAD_CONST               2 (None)
+             28 RETURN_VALUE
 
-<genexpr>
-    LOAD_FAST '.0' 
+Disassembly of <code object f at 0x00000222CEE90A50, file "", line 2>:
+  3           0 LOAD_CONST               1 (<code object <genexpr> at 0x00000222CEE904B0, file "", line 3>)
+              2 LOAD_CONST               2 ('f.<locals>.<genexpr>')
+              4 MAKE_FUNCTION            0
+              6 LOAD_GLOBAL              0 (S)
+              8 CALL_FUNCTION            0
+             10 GET_AITER
+             12 CALL_FUNCTION            1
+             14 RETURN_VALUE
 
-label_instr1: 
-    FOR_ITER <label_instr16> 
-    STORE_FAST 'i' 
-    LOAD_FAST 'i' 
-    LOAD_CONST 2 
-    BINARY_MODULO 
-    POP_JUMP_IF_FALSE <label_instr1> 
-    LOAD_FAST 'i' 
-    LOAD_CONST 6 
-    COMPARE_OP <Compare.GT: 4> 
-    POP_JUMP_IF_FALSE <label_instr1> 
-    LOAD_FAST 'i' 
-    YIELD_VALUE 
-    POP_TOP 
-    JUMP_ABSOLUTE <label_instr1> 
-
-label_instr16: 
-    LOAD_CONST None 
-    RETURN_VALUE 
-
+Disassembly of <code object <genexpr> at 0x00000222CEE904B0, file "", line 3>:
+  3           0 LOAD_FAST                0 (.0)
+        >>    2 SETUP_EXCEPT            12 (to 16)
+              4 GET_ANEXT
+              6 LOAD_CONST               0 (None)
+              8 YIELD_FROM
+             10 STORE_FAST               1 (i)
+             12 POP_BLOCK
+             14 JUMP_FORWARD            10 (to 26)
+        >>   16 DUP_TOP
+             18 LOAD_GLOBAL              0 (StopAsyncIteration)
+             20 COMPARE_OP              10 (exception match)
+             22 POP_JUMP_IF_TRUE        50
+             24 END_FINALLY
+        >>   26 LOAD_FAST                1 (i)
+             28 LOAD_CONST               1 (3)
+             30 COMPARE_OP               4 (>)
+             32 POP_JUMP_IF_FALSE        2
+             34 LOAD_FAST                1 (i)
+             36 LOAD_FAST                1 (i)
+             38 LOAD_CONST               2 (5)
+             40 BINARY_MODULO
+             42 BUILD_TUPLE              2
+             44 YIELD_VALUE
+             46 POP_TOP
+             48 JUMP_ABSOLUTE            2
+        >>   50 POP_TOP
+             52 POP_TOP
+             54 POP_TOP
+             56 POP_EXCEPT
+             58 POP_TOP
+             60 LOAD_CONST               0 (None)
+             62 RETURN_VALUE
