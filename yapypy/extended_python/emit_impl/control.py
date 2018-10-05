@@ -371,9 +371,10 @@ def py_emit(node: ast.With, ctx: Context):
     >>> a = -1
     >>> for i in range(10):
     >>>     with open(os.devnull, "w") as fp:
+    >>>         asssert a, fp.closed == -1, False
     >>>         a = i
     >>>         break
-    >>> assert a == 0
+    >>> asssert a, fp.closed == 0, True
     """
 
     flabel_stack = []
