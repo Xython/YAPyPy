@@ -118,3 +118,47 @@ prepare:
     if is_composed:
         ctx.bc.append(ROT_THREE(lineno=node.lineno))
     ctx.bc.append(to_move)
+
+
+@py_emit.case(ast.AnnAssign)
+def py_emit(node: ast.AnnAssign, ctx: Context):
+    """
+    title: ann_assign
+    test:
+    >>> lfkdsk : int = 1111111
+    >>> assert lfkdsk == 1111111
+
+    >>> d : int = 2000 if lfkdsk == 1111111 else 3000
+    >>> assert d == 2000
+
+    >>> a = [1, 3, 5]
+    >>> a[1] : int = 1000
+    >>> assert a[1] == 1000
+
+    >>> def fun(x : int):
+    >>>     return x
+    >>> assert fun(100) == 100
+
+    >>> s : dict = dict()
+    >>> assert s is not None
+    """
+
+    byte_code: list = ctx.bc
+    target = node.target
+    value = node.value
+
+    # setup annotations.
+    # TODO: context should check annotations.
+    byte_code.append(SETUP_ANNOTATIONS())
+
+    # load value
+    py_emit(value, ctx)
+    # store target
+    py_emit(target, ctx)
+    # load annotation
+    py_emit(node.annotation, ctx)
+
+    target_type = type(target)
+
+    if target_type is ast.Name:
+        byte_code.append(STORE_ANNOTATION(target.id, lineno=target.lineno))
