@@ -153,33 +153,105 @@ def py_emit(node: ast.List, ctx: Context):
 
     if expr_ctx is ast.Store:
         ctx.bc.append(UNPACK_SEQUENCE(len(node.elts), lineno=node.lineno))
-        for each in node.elts:
-            py_emit(each, ctx)
-    elif expr_ctx is ast.Del:
-        for each in node.elts:
-            py_emit(each, ctx)
-    else:
-        for each in node.elts:
-            py_emit(each, ctx)
 
+    for each in node.elts:
+        py_emit(each, ctx)
+
+    if expr_ctx is ast.Load:
         ctx.bc.append(BUILD_LIST(len(node.elts), lineno=node.lineno))
 
 
 @py_emit.case(ex_ast.ExDict)
 def py_emit(node: ex_ast.ExDict, ctx: Context):
+    """
+    title:
+    test:
+    >>> a = {1: 2, 3: 4}
+    >>> b = {5: 6, **a, 1: 10}
+    >>> assert b[5] == 6 and b[3] == 4 and b[1] == 10
+    >>> b = {7: a, **b, **a}
+    >>> assert b[7] is a and b[1] == 2
+    >>> print(b)
+    >>> {7: a, 1: c} = b
+    >>> assert a == {1: 2, 3: 4} and c == 2
+    >>> {7: {1: a, 3: b}, 1: c} = b
+    >>> print(a, b, c)
+    >>> assert a == 2 and b == 4 and c == 2
+    >>> x = {1: 2, 3: 4, 5: 6}
+    >>> {1:a, **kw} = x
+    >>> print(a, kw)
+    >>> assert a == 2 and kw == {3: 4, 5: 6}
+
+    """
     keys = node.keys
     expr_ctx_ty = type(node.ctx)
     values = node.values
-    if any(each for each in keys if each is None):
-        raise NotImplemented
+    lineno = node.lineno
+    bc = ctx.bc
+
+    if not all(keys):
+        if expr_ctx_ty is ast.Load:
+
+            def process_group():
+                nonlocal count
+                if group:
+                    count += 1
+                    for k, v in group:
+                        py_emit(k, ctx)
+                        py_emit(v, ctx)
+                    bc.append(BUILD_MAP(len(group), lineno=lineno))
+                    group.clear()
+
+            count = 0
+            group = []
+            for key, value in zip(keys, values):
+                if key is None:
+                    process_group()
+                    py_emit(value, ctx)
+                    count += 1
+                else:
+                    group.append((key, value))
+            process_group()
+            bc.append(BUILD_MAP_UNPACK(count, lineno=lineno))
+
+        else:
+
+            def dict_packing_exc():
+                exc = SyntaxError()
+                exc.lineno = lineno
+                exc.msg = "dict packing must occur in the last position of dict literal."
+                return exc
+
+            if keys[-1] is not None:
+                raise dict_packing_exc()
+            pack = values[-1]
+            bc.extend([
+                LOAD_ATTR('copy', lineno=lineno),
+                CALL_FUNCTION(0),
+                DUP_TOP(),
+                LOAD_ATTR('pop'), *duplicate_top_one(len(keys) - 2)
+            ])
+            for key, value in zip(keys[:-1], values[:-1]):
+                if key is None:
+                    raise dict_packing_exc()
+                py_emit(key, ctx)
+                bc.append(CALL_FUNCTION(1))
+                py_emit(value, ctx)
+            py_emit(pack, ctx)
+
     else:
         if expr_ctx_ty is ast.Load:
             for key, value in zip(keys, values):
                 py_emit(key, ctx)
                 py_emit(value, ctx)
-            ctx.bc.append(Instr('BUILD_MAP', len(keys), lineno=node.lineno))
-        else:
-            pass
+            bc.append(BUILD_MAP(len(keys), lineno=lineno))
+        elif keys:
+            bc.append(LOAD_ATTR('get', lineno=lineno))
+            bc.extend(duplicate_top_one(len(keys) - 1))
+            for key, value in zip(keys, values):
+                py_emit(key, ctx)
+                bc.append(CALL_FUNCTION(1))
+                py_emit(value, ctx)
 
 
 @py_emit.case(ast.Subscript)
@@ -268,9 +340,7 @@ def py_emit(node: ast.Attribute, ctx: Context):
     }.get(type(node.ctx))
 
     assert command is not None
-    ctx.bc.append(
-        command(
-            node.attr,
-            lineno=node.lineno,
-        ),
-    )
+    ctx.bc.append(command(
+        node.attr,
+        lineno=node.lineno,
+    ), )
