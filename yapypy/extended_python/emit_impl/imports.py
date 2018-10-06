@@ -3,13 +3,28 @@ from yapypy.extended_python.pybc_emit import *
 
 @py_emit.case(ast.Import)
 def py_emit(node: ast.Import, ctx: Context):
+    """
+    title: import
+    test:
+    >>> import os as os, sys
+    """
+    byte_code: list = ctx.bc
     for name in node.names:
-        ctx.bc.append(
-            Instr("LOAD_CONST", 0,
-                  lineno=node.lineno))  # TOS1 for level, default to zero
-        ctx.bc.append(Instr("LOAD_CONST", None,
-                            lineno=node.lineno))  # TOS for fromlist()
-        ctx.bc.append(Instr("IMPORT_NAME", name.name, lineno=node.lineno))
+        byte_code.append(
+            Instr(
+                "LOAD_CONST",
+                0,
+                lineno=node.lineno,
+            ),
+        )  # TOS1 for level, default to zero
+        byte_code.append(
+            Instr(
+                "LOAD_CONST",
+                None,
+                lineno=node.lineno,
+            ),
+        ),  # TOS for fromlist()
+        byte_code.append(Instr("IMPORT_NAME", name.name, lineno=node.lineno))
         as_name = name.name or name.asname
         ctx.store_name(as_name, lineno=node.lineno)
 
@@ -20,6 +35,7 @@ def py_emit(node: ast.ImportFrom, ctx: Context):
     title: import from
     test:
      >>> from os.path import join
+     >>> from os import path as path
      >>> from os import *
      >>> from os.path import *
      >>> def f(x):
@@ -37,7 +53,7 @@ def py_emit(node: ast.ImportFrom, ctx: Context):
     ctx.bc.append(LOAD_CONST(names, lineno=lineno))
     ctx.bc.append(Instr("IMPORT_NAME", node.module, lineno=lineno))
 
-    if names == ('*', ):
+    if names == ('*',):
         ctx.bc.append(Instr('IMPORT_STAR', lineno=lineno))
 
     else:

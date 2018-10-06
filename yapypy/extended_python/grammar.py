@@ -67,8 +67,8 @@ import_name ::= mark='import' names=dotted_as_names                             
 # note below::= the ('.' | '...') is necessary because '...' is tokenized as ELLIPSIS                         --------------------------------
 import_level::= (_1='.' | '...')                                                                              -> 1 if _1 else 3                                                           
 wild        ::= '*'                                                                                           -> [alias(name='*', asname=None)]
-import_from ::= (mark='from' (levels=('.' | '...')* module=dotted_name | levels=('.' | '...')+)               # ------------------------------
-                 'import' (wild=wild | '(' names=import_as_names ')' | names=import_as_names))                 -> ImportFrom(module, wild or names, sum(levels or []), **loc @ mark)                           
+import_from ::= (mark='from' (levels=import_level* module=dotted_name | levels=import_level+)                 # ------------------------------
+                 'import' (wild=wild | '(' names=import_as_names ')' | names=import_as_names))                -> ImportFrom(module or '', wild or names, sum(levels or []), **loc @ mark)                           
 NAMESTR        ::= n=NAME                                                                                     -> n.value         
 import_as_name ::= name=NAMESTR ['as' asname=NAMESTR]                                                         -> alias(name, asname)
 dotted_as_name ::= name=dotted_name ['as' asname=NAMESTR]                                                     -> alias(name, asname) 

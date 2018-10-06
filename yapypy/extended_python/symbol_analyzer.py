@@ -1,7 +1,21 @@
 import ast
+import typing
 from yapypy.utils.namedlist import INamedList, as_namedlist, trait
 from typing import NamedTuple, List, Optional, Union
 from pprint import pformat
+from enum import Enum, auto as _auto
+
+
+class ContextType(Enum):
+    """
+    Generator
+    Coroutine
+    """
+    Module = _auto()
+    Generator = _auto()  # yield
+    Coroutine = _auto()  # async
+    Annotation = _auto()
+    ClassDef = _auto()
 
 
 class AnalyzedSymTable(NamedTuple):
@@ -20,6 +34,7 @@ class SymTable(INamedList, metaclass=trait(as_namedlist)):
     children: List['SymTable']
     depth: int  # to test if it is global context
     analyzed: Optional[AnalyzedSymTable]
+    cts: typing.Union[typing.Set[ContextType], typing.FrozenSet[ContextType]]
 
     def update(self,
                requires: set = None,
@@ -29,7 +44,8 @@ class SymTable(INamedList, metaclass=trait(as_namedlist)):
                parent=None,
                children=None,
                depth=None,
-               analyzed=None):
+               analyzed=None,
+               cts=None):
         return SymTable(
             requires if requires is not None else self.requires,
             entered if entered is not None else self.entered,
@@ -39,11 +55,13 @@ class SymTable(INamedList, metaclass=trait(as_namedlist)):
             parent if parent is not None else self.parent,
             children if children is not None else self.children,
             depth if depth is not None else self.depth,
-            analyzed if analyzed is not None else self.analyzed)
+            analyzed if analyzed is not None else self.analyzed,
+            cts if cts is not None else self.cts)
 
     @staticmethod
     def global_context():
-        return SymTable(set(), set(), set(), set(), None, [], 0, None)
+        return SymTable(set(), set(), set(), set(), None, [], 0, None,
+                        {ContextType.Module})
 
     def enter_new(self):
         new = self.update(
@@ -53,7 +71,8 @@ class SymTable(INamedList, metaclass=trait(as_namedlist)):
             explicit_nonlocals=set(),
             parent=self,
             children=[],
-            depth=self.depth + 1)
+            depth=self.depth + 1,
+            cts=set())
         self.children.append(new)
         return new
 
@@ -175,6 +194,31 @@ def visit_suite(visit_fn, suite: list):
     return [visit_fn(each) for each in suite]
 
 
+def _visit_cls(self: 'ASTTagger', node: ast.ClassDef):
+
+    bases = visit_suite(self.visit, node.bases)
+    keywords = visit_suite(self.visit, node.keywords)
+    decorator_list = visit_suite(self.visit, node.decorator_list)
+
+    self.symtable.entered.add(node.name)
+
+    new = self.symtable.enter_new()
+
+    new.entered.add('__module__')
+    new.entered.add('__qualname__')
+
+    new_tagger = ASTTagger(new)
+    new.cts.add(ContextType.ClassDef)
+    body = visit_suite(new_tagger.visit, node.body)
+
+    node.bases = bases
+    node.keywords = keywords
+    node.decorator_list = decorator_list
+    node.body = body
+
+    return Tag(node, new)
+
+
 def _visit_list_set_gen_comp(self: 'ASTTagger', node: ast.ListComp):
     new = self.symtable.enter_new()
     new.entered.add('.0')
@@ -186,6 +230,8 @@ def _visit_list_set_gen_comp(self: 'ASTTagger', node: ast.ListComp):
     if head.ifs:
         head.ifs = [new_tagger.visit(each) for each in head.ifs]
 
+    if any(each.is_async for each in node.generators):
+        new.cts.add(ContextType.Coroutine)
     node.generators = [head, *[new_tagger.visit(each) for each in tail]]
     return Tag(node, new)
 
@@ -202,9 +248,27 @@ def _visit_dict_comp(self: 'ASTTagger', node: ast.DictComp):
     head.target = new_tagger.visit(head.target)
     if head.ifs:
         head.ifs = [new_tagger.visit(each) for each in head.ifs]
+
+    if any(each.is_async for each in node.generators):
+        new.cts.add(ContextType.Coroutine)
     node.generators = [head, *[new_tagger.visit(each) for each in tail]]
 
     return Tag(node, new)
+
+
+def _visit_yield(self: 'ASTTagger', node: ast.Yield):
+    self.symtable.cts.add(ContextType.Generator)
+    return node
+
+
+def _visit_yield_from(self: 'ASTTagger', node: ast.YieldFrom):
+    self.symtable.cts.add(ContextType.Generator)
+    return node
+
+
+def _visit_ann_assign(self: 'ASTTagger', node: ast.AnnAssign):
+    self.symtable.cts.add(ContextType.Annotation)
+    return node
 
 
 def _visit_fn_def(self: 'ASTTagger',
@@ -220,6 +284,9 @@ def _visit_fn_def(self: 'ASTTagger',
         node.returns = self.visit(node.returns)
 
     new = self.symtable.enter_new()
+
+    if isinstance(node, ast.AsyncFunctionDef):
+        new.cts.add(ContextType.Coroutine)
 
     arguments = args.args + args.kwonlyargs
     if args.vararg:
@@ -266,6 +333,7 @@ class ASTTagger(ast.NodeTransformer):
     visit_Name = _visit_name
     visit_Import = _visit_import
     visit_ImportFrom = _visit_import
+
     visit_Global = _visit_global
     visit_Nonlocal = _visit_nonlocal
     visit_FunctionDef = _visit_fn_def
@@ -273,6 +341,11 @@ class ASTTagger(ast.NodeTransformer):
     visit_Lambda = _visit_lam
     visit_ListComp = visit_SetComp = visit_GeneratorExp = _visit_list_set_gen_comp
     visit_DictComp = _visit_dict_comp
+
+    visit_Yield = _visit_yield
+    visit_YieldFrom = _visit_yield_from
+    visit_AnnAssign = _visit_ann_assign
+    visit_ClassDef = _visit_cls
 
 
 def to_tagged_ast(node: ast.Module):

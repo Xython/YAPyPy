@@ -10,14 +10,18 @@ def py_emit(node: ast.YieldFrom, ctx: Context):
     >>>   yield from 1,
     >>> assert next(f()) == 1
     """
-    flags = ctx.bc.flags
-    if flags & CompilerFlags.COROUTINE or flags & CompilerFlags.ASYNC_GENERATOR:
+
+    if ContextType.Coroutine in ctx.cts:
         exc = SyntaxError()
         exc.lineno = node.lineno
-        exc.msg = 'yield from in async function.'
+        exc.msg = 'yield from in async functions.'
+        raise exc
+    elif ContextType.Module in ctx.cts:
+        exc = SyntaxError()
+        exc.lineno = node.lineno
+        exc.msg = 'yield from outside functions.'
         raise exc
 
-    ctx.bc.flags |= CompilerFlags.GENERATOR
     append = ctx.bc.append
     py_emit(node.value, ctx)
     append(Instr('GET_YIELD_FROM_ITER', lineno=node.lineno))
@@ -40,16 +44,11 @@ def py_emit(node: ast.Await, ctx: Context):
         >>> print(result)
         """
 
-    if not (ctx.bc.flags & CompilerFlags.ASYNC_GENERATOR
-            or ctx.bc.flags & CompilerFlags.COROUTINE):
+    if ContextType.Coroutine not in ctx.cts:
         exc = SyntaxError()
         exc.lineno = node.lineno
-        exc.msg = 'await outside async function.'
+        exc.msg = 'await outside async functions.'
         raise exc
-    if ctx.bc.flags | CompilerFlags.ASYNC_GENERATOR:
-        pass
-    else:
-        ctx.bc.flags |= CompilerFlags.COROUTINE
 
     append = ctx.bc.append
     py_emit(node.value, ctx)
@@ -70,16 +69,11 @@ def py_emit(node: ast.Yield, ctx: Context):
     >>>     yield 1
     >>> self.assertEqual(1, next(f()))
     """
-    if ctx.bc.flags & CompilerFlags.COROUTINE:
-        if ctx.bc.flags & CompilerFlags.GENERATOR:
-            ctx.bc.flags ^= CompilerFlags.GENERATOR
-
-        ctx.bc.flags ^= CompilerFlags.COROUTINE
-        ctx.bc.flags |= CompilerFlags.ASYNC_GENERATOR
-    elif ctx.bc.flags & CompilerFlags.ASYNC_GENERATOR:
-        pass
-    else:
-        ctx.bc.flags |= CompilerFlags.GENERATOR
+    if ContextType.Module in ctx.cts:
+        exc = SyntaxError()
+        exc.lineno = node.lineno
+        exc.msg = 'yield outside functions.'
+        raise exc
 
     py_emit(node.value, ctx)
     ctx.bc.append(Instr('YIELD_VALUE', lineno=node.lineno))

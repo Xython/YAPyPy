@@ -1,0 +1,18 @@
+[run]
+branch = True
+source = yapypy
+
+[report]
+exclude_lines =
+    if self.debug:
+    pragma: no cover
+    raise NotImplementedError
+    if __name__ == .__main__.:
+    if sys.version_info >= (3, 7):
+    if sys.version_info < (3, 7):
+ignore_errors = True
+omit =
+    tests/*
+    auto_test.py
+    yapypy/utils/*
+    yapypy/cmd/*

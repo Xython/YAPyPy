@@ -1,16 +1,16 @@
 import ast
-import dis
-
-import pytest
 import unittest
-from astpretty import pprint
-from yapypy.extended_python.py_compile import py_compile
-from yapypy.extended_python.parser import parse
-from Redy.Tools.PathLib import Path
 from os.path import splitext
 from textwrap import dedent
-from bytecode import Bytecode
+
+import pytest
 import rbnf.zero as ze
+from Redy.Tools.PathLib import Path
+from bytecode import Bytecode
+
+from yapypy.extended_python.parser import parse
+from yapypy.extended_python.py_compile import py_compile
+
 ze_exp = ze.compile(
     r"""
 [python] import rbnf.std.common.[recover_codes]
@@ -114,10 +114,10 @@ class Test(unittest.TestCase):
 
                 fixer = FixLineno(lineno + test_code.count('\n'))
                 try:
-                    node = parse(test_code).result
+                    node = parse(test_code, filename).result
                     # pprint(node)
                     fixer.visit(node)
-                    code = py_compile(node)
+                    code = py_compile(node, filename, is_entrypoint=True)
                 except SyntaxError as exc:
                     exc.lineno = lineno
                     exc.filename = filename
@@ -125,8 +125,9 @@ class Test(unittest.TestCase):
                 bc = Bytecode.from_code(code)
                 bc.filename = filename
                 bc.first_lineno = lineno
-                exec(bc.to_code(), context)
+                code_obj = bc.to_code()
 
+                exec(code_obj, context)
                 print(f'tests of {mod_name}.{title or fn_name} passed.')
 
 
