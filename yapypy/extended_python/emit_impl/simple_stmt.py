@@ -11,7 +11,10 @@ def py_emit(node: ast.Return, ctx: Context):
     >>>     return 1
     >>> assert f() == 1
     """
-    py_emit(node.value, ctx)
+    if node.value:
+        py_emit(node.value, ctx)
+    else:
+        ctx.bc.append(LOAD_CONST(None))
     ctx.bc.append(Instr('RETURN_VALUE', lineno=node.lineno))
 
 

@@ -1,5 +1,5 @@
 from yapypy.extended_python.pybc_emit import *
-
+from bytecode import dump_bytecode
 
 def emit_function(node: typing.Union[ast.AsyncFunctionDef, ast.FunctionDef, ast.Lambda],
                   new_ctx: Context, is_async: bool):
@@ -106,8 +106,12 @@ def emit_function(node: typing.Union[ast.AsyncFunctionDef, ast.FunctionDef, ast.
     new_ctx.bc.append(Instr('LOAD_CONST', None))
     new_ctx.bc.append(Instr('RETURN_VALUE'))
 
-    inner_code = new_ctx.bc.to_code()
-
+    try:
+        inner_code = new_ctx.bc.to_code()
+    except RuntimeError:
+        print(new_ctx.bc.filename)
+        dump_bytecode(new_ctx.bc)
+        raise
     parent_ctx.bc.append(Instr('LOAD_CONST', inner_code, lineno=node.lineno))
 
     # when it comes to nested, the name is not generated correctly now.
