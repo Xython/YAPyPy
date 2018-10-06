@@ -100,6 +100,10 @@ def py_emit(node: ast.Try, ctx: Context):
     >>> finally:
     >>>     print( f'current a is:{a!r}')
     >>> assert a == 'name'
+    >>> try:
+    >>>     a = 1 + 'b'
+    >>> except TypeError as e:
+    >>>     a = 'type'
     """
     lineno = node.lineno
     bodys = node.body
@@ -115,7 +119,7 @@ def py_emit(node: ast.Try, ctx: Context):
 
     byte_codes: list = ctx.bc
 
-    if finalbody is not None:
+    if finalbody is not []:
         finally_forward = Label()
         byte_codes.append(SETUP_FINALLY(finally_forward, lineno=lineno))
 
@@ -125,7 +129,7 @@ def py_emit(node: ast.Try, ctx: Context):
     byte_codes.append(POP_BLOCK())
     byte_codes.append(JUMP_FORWARD(try_forward))
     byte_codes.append(setup_forward)
-    labels = [Label()] * len(handlers)
+    labels = Label() for _ in range(len(handlers) - 1)]
 
     for (idx, handler) in enumerate(handlers):
         h_lineno = handler.lineno
@@ -178,7 +182,7 @@ def py_emit(node: ast.Try, ctx: Context):
         py_emit(els, ctx)
 
     byte_codes.append(except_forward)
-    if finalbody is not None:
+    if finalbody is not []:
         byte_codes.append(POP_BLOCK())
         byte_codes.append(LOAD_CONST(None))
         byte_codes.append(finally_forward)
