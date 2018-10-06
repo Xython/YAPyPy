@@ -187,10 +187,16 @@ def py_emit(node: ex_ast.ExDict, ctx: Context):
     lineno = node.lineno
     bc = ctx.bc
 
-    if not all(keys):
-        if expr_ctx_ty is ast.Load:
+    def has_ext_syntax():
+        return not all(keys)
 
-            def process_group():
+    def is_create_dict():
+        return expr_ctx_ty is ast.Load
+
+    if has_ext_syntax():
+        if is_create_dict():
+            # use ext syntax create dict.
+            def process_group():  # build dict
                 nonlocal count
                 if group:
                     count += 1
@@ -205,7 +211,7 @@ def py_emit(node: ex_ast.ExDict, ctx: Context):
             for key, value in zip(keys, values):
                 if key is None:
                     process_group()
-                    py_emit(value, ctx)
+                    py_emit(value, ctx)  # unpack bundle value.
                     count += 1
                 else:
                     group.append((key, value))
@@ -213,7 +219,7 @@ def py_emit(node: ex_ast.ExDict, ctx: Context):
             bc.append(BUILD_MAP_UNPACK(count, lineno=lineno))
 
         else:
-
+            # use ext syntax destructuring dict.
             def dict_packing_exc():
                 exc = SyntaxError()
                 exc.lineno = lineno
@@ -222,30 +228,40 @@ def py_emit(node: ex_ast.ExDict, ctx: Context):
 
             if keys[-1] is not None:
                 raise dict_packing_exc()
+
             pack = values[-1]
             bc.extend([
                 LOAD_ATTR('copy', lineno=lineno),
                 CALL_FUNCTION(0),
                 DUP_TOP(),
-                LOAD_ATTR('pop'), *duplicate_top_one(len(keys) - 2)
+                LOAD_ATTR('pop'),
+                *duplicate_top_one(len(keys) - 2),  # prepare dup top.
             ])
+            # gen destructuring value.
             for key, value in zip(keys[:-1], values[:-1]):
                 if key is None:
                     raise dict_packing_exc()
                 py_emit(key, ctx)
                 bc.append(CALL_FUNCTION(1))
                 py_emit(value, ctx)
+            # generate **kw value.
             py_emit(pack, ctx)
 
     else:
-        if expr_ctx_ty is ast.Load:
+        # create dict with origin syntax
+        if is_create_dict():
             for key, value in zip(keys, values):
                 py_emit(key, ctx)
                 py_emit(value, ctx)
             bc.append(BUILD_MAP(len(keys), lineno=lineno))
-        elif keys:
+            return
+
+        # destructuring dict with origin syntax
+        if not has_ext_syntax():
             bc.append(LOAD_ATTR('get', lineno=lineno))
+            # dup top before gen k,v code.
             bc.extend(duplicate_top_one(len(keys) - 1))
+            # dict -> get value and store.
             for key, value in zip(keys, values):
                 py_emit(key, ctx)
                 bc.append(CALL_FUNCTION(1))
