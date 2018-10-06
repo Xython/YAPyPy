@@ -9,9 +9,13 @@ class Greet:
         return yapypy
 
 
-# try:
-#     a = b
-# except NameError as e:
-#     a = 'name'
-#
-# assert a == 'name'
+try:
+    a = b
+except NameError as e:
+    a = 'name'
+assert a == 'name'
+
+Greet().greet()
+print(Greet().destruct({'yapypy': 'take away!'}))
+
+

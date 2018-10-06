@@ -37,6 +37,10 @@ def compile_ex_python_from_source(source_code, is_entry_point=True):
 
 @python_ex
 def run(filename: str = None, c: str = None):
+    """
+    filename:  input filename
+    c       :  input source code
+    """
     if filename:
         code = compile_ex_python_from_filename(filename)
     elif c:
