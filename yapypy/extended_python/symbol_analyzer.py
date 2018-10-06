@@ -48,19 +48,30 @@ class SymTable(INamedList, metaclass=trait(as_namedlist)):
                cts=None):
         return SymTable(
             requires if requires is not None else self.requires,
-            entered if entered is not None else self.entered, explicit_nonlocals
+            entered if entered is not None else self.entered,
+            explicit_nonlocals
             if explicit_nonlocals is not None else self.explicit_nonlocals,
             explicit_globals if explicit_globals is not None else self.explicit_globals,
             parent if parent is not None else self.parent,
             children if children is not None else self.children,
             depth if depth is not None else self.depth,
             analyzed if analyzed is not None else self.analyzed,
-            cts if cts is not None else self.cts)
+            cts if cts is not None else self.cts,
+        )
 
     @staticmethod
     def global_context():
-        return SymTable(set(), set(), set(), set(), None, [], 0, None,
-                        {ContextType.Module})
+        return SymTable(
+            requires=set(),
+            entered=set(),
+            explicit_globals=set(),
+            explicit_nonlocals=set(),
+            parent=None,
+            children=[],
+            depth=0,
+            analyzed=None,
+            cts={ContextType.Module},
+        )
 
     def enter_new(self):
         new = self.update(
@@ -71,7 +82,8 @@ class SymTable(INamedList, metaclass=trait(as_namedlist)):
             parent=self,
             children=[],
             depth=self.depth + 1,
-            cts=set())
+            cts=set(),
+        )
         self.children.append(new)
         return new
 
@@ -83,6 +95,7 @@ class SymTable(INamedList, metaclass=trait(as_namedlist)):
         enters = self.entered
         nonlocals = self.explicit_nonlocals
         globals_ = self.explicit_globals
+        # split bounds
         bounds = {
             each
             for each in enters
@@ -109,7 +122,8 @@ class SymTable(INamedList, metaclass=trait(as_namedlist)):
         def fetched_from_outside(sym_tb: SymTable):
             return sym_tb.analyzed.freevars.union(
                 analyzed.borrowed_cellvars,
-                *(fetched_from_outside(each.analyze()) for each in sym_tb.children))
+                *(fetched_from_outside(each.analyze()) for each in sym_tb.children),
+            )
 
         analyzed = self.analyzed
         cellvars = analyzed.cellvars
@@ -123,20 +137,25 @@ class SymTable(INamedList, metaclass=trait(as_namedlist)):
         bounds.difference_update(cellvars)
         return cellvars
 
+    def is_global(self):
+        return self.depth == 0
+
     def analyze(self):
-        if self.analyzed:
+        if self.analyzed is not None:
             return self
-        if self.depth is 0:
+
+        if self.is_global():
             # global context
             self.analyzed = AnalyzedSymTable(set(), set(), set(), set())
             for each in self.children:
                 each.analyze()
             return self
-        else:
-            self.resolve_bounds()
-            self.resolve_freevars()
-            self.resolve_cellvars()
-            return self
+
+        # analyze local table.
+        self.resolve_bounds()
+        self.resolve_freevars()
+        self.resolve_cellvars()
+        return self
 
     def show_resolution(self):
 
@@ -191,7 +210,6 @@ def visit_suite(visit_fn, suite: list):
 
 
 def _visit_cls(self: 'ASTTagger', node: ast.ClassDef):
-
     bases = visit_suite(self.visit, node.bases)
     keywords = visit_suite(self.visit, node.keywords)
     decorator_list = visit_suite(self.visit, node.decorator_list)
@@ -268,7 +286,6 @@ def _visit_ann_assign(self: 'ASTTagger', node: ast.AnnAssign):
 
 
 def _visit_fn_def(self: 'ASTTagger', node: Union[ast.FunctionDef, ast.AsyncFunctionDef]):
-
     self.symtable.entered.add(node.name)
     args = node.args
     visit_suite(self.visit, node.decorator_list)
@@ -345,9 +362,10 @@ class ASTTagger(ast.NodeTransformer):
 
 
 def to_tagged_ast(node: ast.Module):
-    g = SymTable.global_context()
-    node = Tag(ASTTagger(g).visit(node), g)
-    g.analyze()
+    global_table = SymTable.global_context()
+    # transform ast node to tagged. visit is an proxy method to spec method.
+    node = Tag(ASTTagger(global_table).visit(node), global_table)
+    global_table.analyze()
     return node
 
 

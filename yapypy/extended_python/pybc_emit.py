@@ -43,8 +43,10 @@ class Context(INamedList, metaclass=trait(as_namedlist)):
 
         cts = tag_table.cts
 
-        if ContextType.Annotation in cts and (ContextType.ClassDef in cts
-                                              or ContextType.Module in cts):
+        has_annotation = ContextType.Annotation in cts
+        under_class_def_or_module = ContextType.ClassDef in cts or ContextType.Module in cts
+
+        if has_annotation and under_class_def_or_module:
             bc.append(SETUP_ANNOTATIONS())
 
         if ContextType.Coroutine in cts:
@@ -68,7 +70,12 @@ class Context(INamedList, metaclass=trait(as_namedlist)):
 
         bc.cellvars.extend(sym_tb.cellvars)
         return Context(
-            parent=self, bc=bc, sym_tb=sym_tb, current_label_stack=[], cts=frozenset(cts))
+            parent=self,
+            bc=bc,
+            sym_tb=sym_tb,
+            current_label_stack=[],
+            cts=frozenset(cts),
+        )
 
     def load_name(self, name, lineno=None):
         sym_tb = self.sym_tb

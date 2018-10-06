@@ -104,10 +104,11 @@ def shift_expr_rewrite(head, tail):
     if tail:
         for op, each in tail:
 
-            head = ast.BinOp(head, {
-                '>>': ast.RShift,
-                '<<': ast.LShift
-            }[op.value](), each, **loc @ op)
+            head = ast.BinOp(head,
+                             {
+                                 '>>': ast.RShift,
+                                 '<<': ast.LShift
+                             }[op.value](), each, **loc @ op)
     return head
 
 
