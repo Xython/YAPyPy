@@ -13,6 +13,14 @@ from Redy.Magic.Pattern import Pattern
 from bytecode import *
 from bytecode.concrete import FreeVar, CellVar, Compare
 from bytecode.flags import CompilerFlags
+from enum import Enum, auto as _auto
+
+
+class BlockType(Enum):
+    LOOP = _auto()
+    EXCEPT = _auto()
+    FINALLY_TRY = _auto()
+    FINALLY_END = _auto()
 
 
 class IndexedAnalyzedSymTable(NamedTuple):
@@ -30,20 +38,20 @@ class Context(INamedList, metaclass=trait(as_namedlist)):
     bc: Bytecode
     sym_tb: IndexedAnalyzedSymTable
     parent: 'Context'
-    current_label_stack: list
+    current_block_stack: list
 
     def update(
             self,
             bc=None,
             sym_tb=None,
             parent=None,
-            current_label_stack=None,
+            current_block_stack=None,
     ):
         return Context(
             bc if bc is not None else self.bc,
             sym_tb if sym_tb is not None else self.sym_tb,
             parent if parent is not None else self.parent,
-            current_label_stack or self.current_label_stack,
+            current_block_stack or self.current_block_stack,
         )
 
     def enter_new(self, tag_table: SymTable):
@@ -60,7 +68,7 @@ class Context(INamedList, metaclass=trait(as_namedlist)):
 
         bc.cellvars.extend(sym_tb.cellvars)
         return self.update(
-            parent=self, bc=bc, sym_tb=sym_tb, current_label_stack=[])
+            parent=self, bc=bc, sym_tb=sym_tb, current_block_stack=[])
 
     def load_name(self, name, lineno=None):
         sym_tb = self.sym_tb
@@ -114,14 +122,25 @@ class Context(INamedList, metaclass=trait(as_namedlist)):
 
         parent.bc.append(Instr('BUILD_TUPLE', len(freevars)))
 
-    def push_current_label(self, label: Label):
-        self.current_label_stack.append(label)
+    def push_current_block(self, blktype: BlockType, label: Label = None):
+        item = (blktype, label)
+        self.current_block_stack.append(item)
 
-    def pop_current_label(self):
-        return self.current_label_stack.pop()
+    def pop_current_block(self, blktype: BlockType = None, lineno=None):
+        if blktype != None:
+            _blktype, _ = self.current_block_stack[-1]
+            if _blktype != blktype:
+                exc = SystemError()
+                exc.lineno = lineno
+                exc.msg = "pop block type is not expect, want %s but get %s" % (blktype, _blktype)
+                raise exc
+        return self.current_block_stack.pop()
 
-    def get_current_label(self):
-        return self.current_label_stack[-1]
+    def get_current_block(self):
+        return self.current_block_stack[-1]
+
+    def get_block_stack(self):
+        return self.current_block_stack
 
 
 @Pattern

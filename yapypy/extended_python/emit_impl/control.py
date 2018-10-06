@@ -158,7 +158,7 @@ def py_emit(node: ast.While, ctx: Context):
     while_loop_with_orelse_out = Label()
     while_iter_in = Label()
     while_iter_out = Label()
-    ctx.push_current_label(while_iter_in)
+    ctx.push_current_block(BlockType.LOOP, while_iter_in)
 
     ctx.bc.append(SETUP_LOOP(while_loop_with_orelse_out, lineno=node.lineno))
     ctx.bc.append(while_iter_in)
@@ -171,7 +171,7 @@ def py_emit(node: ast.While, ctx: Context):
     ctx.bc.append(while_iter_out)
     ctx.bc.append(POP_BLOCK(lineno=node.lineno))
 
-    ctx.pop_current_label()
+    ctx.pop_current_block(BlockType.LOOP, node.lineno)
 
     for each in node.orelse:
         py_emit(each, ctx)
@@ -214,7 +214,7 @@ def py_emit(node: ast.For, ctx: Context):
     for_loop_with_orelse_out = Label()
     for_iter_in = Label()
     for_iter_out = Label()
-    ctx.push_current_label(for_iter_in)
+    ctx.push_current_block(BlockType.LOOP, for_iter_in)
 
     ctx.bc.append(SETUP_LOOP(for_loop_with_orelse_out, lineno=node.lineno))
     py_emit(node.iter, ctx)
@@ -229,7 +229,7 @@ def py_emit(node: ast.For, ctx: Context):
     ctx.bc.append(for_iter_out)
     ctx.bc.append(POP_BLOCK(lineno=node.lineno))
 
-    ctx.pop_current_label()
+    ctx.pop_current_block(BlockType.LOOP, node.lineno)
 
     for each in node.orelse:
         py_emit(each, ctx)
@@ -355,8 +355,42 @@ def py_emit(node: ast.Continue, ctx: Context):
     >>>         continue
     >>>     s += x
     >>> self.assertEqual(s, 4+6+1 + 4+6 + 4+6+3)
+
     """
-    ctx.bc.append(JUMP_ABSOLUTE(ctx.get_current_label(), lineno=node.lineno))
+    blktype, label = ctx.get_current_block()
+
+    if blktype == BlockType.LOOP:
+        _, label = ctx.get_current_block()
+        ctx.bc.append(JUMP_ABSOLUTE(label, lineno=node.lineno))
+
+    elif blktype == BlockType.EXCEPT or blktype == BlockType.FINALLY_TRY:
+        blkstack = ctx.get_block_stack()
+        i = len(blkstack) - 1
+        while (i >= 0 and blkstack[i] != BlockType.LOOP):
+            i -= 1
+            blktype, _ = blkstack[i]
+            if blktype == BlockType.LOOP:
+                break
+            if blkstack[i] == BlockType.FINALLY_END:
+                exc = SyntaxError()
+                exc.lineno = node.lineno
+                exc.msg = "'continue' not supported inside 'finally' clause"
+                raise exc
+
+        if i < 0:
+            exc = SyntaxError()
+            exc.lineno = node.lineno
+            exc.msg = "'continue' not properly in loop"
+            raise exc
+
+        _, label = blkstack[i]
+        ctx.bc.append(CONTINUE_LOOP(label, lineno=node.lineno))
+
+    elif blktype == BlockType.FINALLY_END:
+        exc = SyntaxError()
+        exc.msg = "'continue' not supported inside 'finally' clause"
+        exc.lineno = node.lineno
+        raise exc
 
 
 @py_emit.case(ast.With)
@@ -365,20 +399,30 @@ def py_emit(node: ast.With, ctx: Context):
     title: With
     prepare:
     >>> import os
+    >>> import unittest
+    >>> self: unittest.TestCase
     test:
     >>> with open(os.devnull, "w") as fp, open(os.devnull, "w"), open(os.devnull, "w") as fpp:
     >>>     fp.write("emmm")
-    >>>     fpp.wirte("ummm")
+    >>>     fpp.write("ummm")
     >>>     assert fp.closed, fpp.closed == False, False
     >>> assert fp.closed, fpp.closed == True, True
 
     >>> a = -1
     >>> for i in range(10):
     >>>     with open(os.devnull, "w") as fp:
-    >>>         asssert a, fp.closed == -1, False
+    >>>         assert a, fp.closed == -1, False
     >>>         a = i
     >>>         break
-    >>> asssert a, fp.closed == 0, True
+    >>> assert a, fp.closed == 0, True
+
+    >>> s = 0
+    >>> for x in [1, 2, 3, 4]:
+    >>>     with open(os.devnull, "w") as fp:
+    >>>         if x == 3:
+    >>>             continue
+    >>>         s += x
+    >>> self.assertEqual(s, 1 + 2 + 4)
     """
 
     flabel_stack = []
@@ -387,6 +431,7 @@ def py_emit(node: ast.With, ctx: Context):
         flabel_stack.append(finally_label)
         py_emit(each.context_expr, ctx)
         ctx.bc.append(Instr("SETUP_WITH", finally_label, lineno=node.lineno))
+        ctx.push_current_block(BlockType.FINALLY_TRY)
         if each.optional_vars:
             py_emit(each.optional_vars, ctx)
         else:
@@ -397,8 +442,13 @@ def py_emit(node: ast.With, ctx: Context):
 
     while flabel_stack:
         ctx.bc.append(Instr("POP_BLOCK", lineno=node.lineno))
+        ctx.pop_current_block(BlockType.FINALLY_TRY, node.lineno)
+
         ctx.bc.append(Instr("LOAD_CONST", None, lineno=node.lineno))
-        ctx.bc.append(flabel_stack.pop(-1))
+        finally_label = flabel_stack.pop(-1)
+        ctx.push_current_block(BlockType.FINALLY_END, finally_label)
+        ctx.bc.append(finally_label)
         ctx.bc.append(Instr("WITH_CLEANUP_START", lineno=node.lineno))
         ctx.bc.append(Instr("WITH_CLEANUP_FINISH", lineno=node.lineno))
         ctx.bc.append(Instr("END_FINALLY", lineno=node.lineno))
+        ctx.pop_current_block(BlockType.FINALLY_END, node.lineno)
