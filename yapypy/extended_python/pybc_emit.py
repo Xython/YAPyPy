@@ -61,10 +61,10 @@ class Context(INamedList, metaclass=trait(as_namedlist)):
         if tag_table.depth > 1:
             bc.flags |= CompilerFlags.NESTED
 
-        if not sym_tb.freevars:
+        if not sym_tb.freevars and not sym_tb.borrowed_cellvars:
             bc.flags |= CompilerFlags.NOFREE
         else:
-            bc.freevars.extend(sym_tb.freevars)
+            bc.freevars.extend(sym_tb.freevars + sym_tb.borrowed_cellvars)
 
         bc.cellvars.extend(sym_tb.cellvars)
         return Context(

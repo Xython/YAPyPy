@@ -10,13 +10,19 @@ from Redy.Tools.PathLib import Path
 from rbnf.edsl.rbnf_analyze import check_parsing_complete
 from importlib.abc import MetaPathFinder
 
-from astpretty import pprint
+is_debug = False
 
 
 class YAPyPyFinder(MetaPathFinder):
     @classmethod
     def find_spec(cls, fullname: str, paths, target=None):
-        return find_yapypy_module_spec(fullname)
+
+        paths = paths if isinstance(
+            paths, list) else [paths] if isinstance(paths, str) else sys.path
+
+        if is_debug:
+            print(f'Searching module {fullname} from {paths}...')
+        return find_yapypy_module_spec(fullname, paths)
 
 
 class YAPyPyLoader:
@@ -30,6 +36,8 @@ class YAPyPyLoader:
         setattr(module, '__package__', self.mod_name)
         setattr(module, '__loader__', self)
         bc = module.__bytecode__
+        if is_debug:
+            print(f'found module {self.mod_name} at {self.mod_path}.')
         exec(bc, module.__dict__)
 
     def create_module(self, spec):
@@ -42,7 +50,7 @@ class YAPyPyLoader:
         return mod
 
 
-def find_yapypy_module_spec(names):
+def find_yapypy_module_spec(names, paths):
     def try_find(prospective_path):
         path_secs = (prospective_path, *names.split('.'))
         *init, end = path_secs
@@ -51,7 +59,7 @@ def find_yapypy_module_spec(names):
             return
         for each in directory.list_dir():
             each_path_str = each.relative()
-            print(each_path_str, end)
+            # print(each_path_str, end)
             if each_path_str == end + '.py':
                 module_path = directory.into(each_path_str)
                 yield get_yapypy_module_spec_from_path(names, str(module_path))
@@ -60,7 +68,6 @@ def find_yapypy_module_spec(names):
             ) and '__init__.py' in each:
                 yield from try_find(str(each))
 
-    paths = sys.path
     for each in paths:
         found = next(try_find(each), None)
         if found:

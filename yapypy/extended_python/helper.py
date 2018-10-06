@@ -101,8 +101,11 @@ def atom_expr_rewrite(a: t.Optional[Tokenizer], atom: ast.AST,
 def shift_expr_rewrite(head, tail):
     if tail:
         for op, each in tail:
-            op = {'>>': ast.RShift, '<<': ast.LShift}[op.value]()
-            head = ast.BinOp(head, op, each, **loc @ op)
+
+            head = ast.BinOp(head, {
+                '>>': ast.RShift,
+                '<<': ast.LShift
+            }[op.value](), each, **loc @ op)
     return head
 
 
