@@ -1,6 +1,7 @@
 from yapypy.extended_python.pybc_emit import *
 from bytecode import dump_bytecode
 
+
 def emit_function(node: typing.Union[ast.AsyncFunctionDef, ast.FunctionDef, ast.Lambda],
                   new_ctx: Context, is_async: bool):
     """

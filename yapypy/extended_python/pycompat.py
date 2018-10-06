@@ -53,6 +53,7 @@ class YAPyPyLoader:
 
 
 def find_yapypy_module_spec(names, paths):
+
     def try_find(prospective_path):
         path_secs = (prospective_path, *names.split('.'))
         *init, end = path_secs

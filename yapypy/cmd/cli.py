@@ -19,6 +19,7 @@ def compile_ex_python_from_filename(filename, is_entry_point=True):
         source_code = fr.read()
         result = parse_ext_py(source_code)
     result.state.filename = filename
+    # double check parsed result.
     check_parsing_complete(source_code, result.tokens, result.state)
     ast = result.result
     code = py_compile(ast, filename, is_entrypoint=is_entry_point)

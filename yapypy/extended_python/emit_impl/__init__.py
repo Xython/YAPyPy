@@ -111,8 +111,8 @@ def py_emit(node: Tag, ctx: Context):
 def py_emit(node: ast.Module, ctx: Context):
     for each in node.body:
         py_emit(each, ctx)
-    ctx.bc.append(Instr('LOAD_CONST', None))
-    ctx.bc.append(Instr('RETURN_VALUE'))
+    ctx.bc.append(LOAD_CONST(None))
+    ctx.bc.append(RETURN_VALUE())
 
 
 @py_emit.case(ex_ast.ConstantMapping)
