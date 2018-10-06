@@ -104,6 +104,7 @@ def py_emit(node: ast.Try, ctx: Context):
     >>>     a = 1 + 'b'
     >>> except TypeError as e:
     >>>     a = 'type'
+    >>> assert a == 'type'
     """
     lineno = node.lineno
     bodys = node.body
@@ -129,7 +130,7 @@ def py_emit(node: ast.Try, ctx: Context):
     byte_codes.append(POP_BLOCK())
     byte_codes.append(JUMP_FORWARD(try_forward))
     byte_codes.append(setup_forward)
-    labels = Label() for _ in range(len(handlers) - 1)]
+    labels = [Label() for _ in range(len(handlers) - 1)]
 
     for (idx, handler) in enumerate(handlers):
         h_lineno = handler.lineno
