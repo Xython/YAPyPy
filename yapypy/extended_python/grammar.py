@@ -122,7 +122,8 @@ expr           ::= head=xor_expr tail=expr_tr*                          -> expr_
 xor_expr_tr    ::= op='^' expr=and_expr                                 -> (op, expr) 
 xor_expr       ::= head=and_expr tail=xor_expr_tr*                      -> xor_expr_rewrite(head, tail)
 
-and_expr       ::= head=shift_expr ('&' tail=shift_expr)*               -> and_expr_rewrite(head, tail)
+and_expr_tr    ::= op = '&' expr=shift_expr                             -> (op, expr)
+and_expr       ::= head=shift_expr tail=and_expr_tr*                    -> and_expr_rewrite(head, tail)
 
 shift_expr_tr  ::= op=('<<'|'>>') expr=arith_expr                       -> (op, expr)
 shift_expr     ::= head=arith_expr tail=shift_expr_tr*                  -> shift_expr_rewrite(head, tail)

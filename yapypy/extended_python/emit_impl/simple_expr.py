@@ -116,3 +116,8 @@ def py_emit(node: ast.Slice, ctx: Context):
 @py_emit.case(ast.Bytes)
 def py_emit(node: ast.Bytes, ctx: Context):
     ctx.bc.append(LOAD_CONST(node.s, lineno=node.lineno))
+
+
+@py_emit.case(ast.Ellipsis)
+def py_emit(node: ast.Ellipsis, ctx: Context):
+    ctx.bc.append(LOAD_CONST(..., lineno=node.lineno))

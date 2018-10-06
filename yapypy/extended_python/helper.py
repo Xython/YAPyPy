@@ -151,6 +151,7 @@ def and_expr_rewrite(head, tail):
     if tail:
         for op, each in tail:
             head = ast.BinOp(head, ast.BitAnd(), each, **loc @ op)
+
     return head
 
 
