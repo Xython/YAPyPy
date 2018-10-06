@@ -3,6 +3,7 @@ import typing as t
 
 
 class ExDict(ast.Dict):
+
     def __init__(
             self,
             keys: t.List[ast.expr],
@@ -24,6 +25,7 @@ class ExDict(ast.Dict):
 
 
 class ConstantMapping(ast.Constant):
+
     def __init__(self, value, lineno=None, col_offset=None):
         super().__init__()
         self.value = value

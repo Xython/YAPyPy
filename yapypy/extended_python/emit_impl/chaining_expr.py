@@ -67,8 +67,7 @@ def py_emit(node: ast.Call, ctx: Context):
                 arg_count += 1
             else:
                 if arg_count:
-                    ctx.bc.append(
-                        Instr("BUILD_TUPLE", arg_count, lineno=node.lineno))
+                    ctx.bc.append(Instr("BUILD_TUPLE", arg_count, lineno=node.lineno))
                     arg_tuple_count += 1
                     arg_count = 0
                 py_emit(each.value, ctx)
@@ -81,9 +80,7 @@ def py_emit(node: ast.Call, ctx: Context):
         if arg_tuple_count > 1:
             ctx.bc.append(
                 Instr(
-                    "BUILD_TUPLE_UNPACK_WITH_CALL",
-                    arg_tuple_count,
-                    lineno=node.lineno))
+                    "BUILD_TUPLE_UNPACK_WITH_CALL", arg_tuple_count, lineno=node.lineno))
         elif arg_tuple_count == 1:
             pass
         elif arg_tuple_count == 0:
@@ -129,11 +126,9 @@ def py_emit(node: ast.Call, ctx: Context):
                             ),
                         )
                     elif karg_count == 1:
-                        ctx.bc.append(
-                            Instr("LOAD_CONST", keys[0], lineno=node.lineno))
+                        ctx.bc.append(Instr("LOAD_CONST", keys[0], lineno=node.lineno))
                         py_emit(values[0], ctx)
-                        ctx.bc.append(
-                            Instr("BUILD_MAP", 1, lineno=node.lineno))
+                        ctx.bc.append(Instr("BUILD_MAP", 1, lineno=node.lineno))
                     keys = []
                     values = []
                     karg_count = 0
@@ -148,7 +143,7 @@ def py_emit(node: ast.Call, ctx: Context):
                     "BUILD_MAP_UNPACK_WITH_CALL",
                     karg_pack_count,
                     lineno=node.lineno,
-                )
+                ),
             )
     else:
         keys = []
@@ -164,7 +159,7 @@ def py_emit(node: ast.Call, ctx: Context):
                 "CALL_FUNCTION_EX",
                 has_star_star | has_key,
                 lineno=node.lineno,
-            )
+            ),
         )
     elif has_key:
         ctx.bc.append(
@@ -172,7 +167,7 @@ def py_emit(node: ast.Call, ctx: Context):
                 "CALL_FUNCTION_KW",
                 len(node.args) + len(node.keywords),
                 lineno=node.lineno,
-            )
+            ),
         )
     else:
         ctx.bc.append(
@@ -238,8 +233,7 @@ def py_emit(node: ast.Compare, ctx: Context):
                 ctx.bc.append(DUP_TOP(lineno=node.lineno))
                 ctx.bc.append(ROT_THREE(lineno=node.lineno))
                 ctx.bc.append(Instr("COMPARE_OP", op, lineno=node.lineno))
-                ctx.bc.append(
-                    JUMP_IF_FALSE_OR_POP(label_rot, lineno=node.lineno))
+                ctx.bc.append(JUMP_IF_FALSE_OR_POP(label_rot, lineno=node.lineno))
 
         ctx.bc.append(label_rot)
         ctx.bc.append(ROT_TWO(lineno=node.lineno))

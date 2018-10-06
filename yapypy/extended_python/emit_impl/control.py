@@ -110,8 +110,7 @@ def py_emit(node: ast.If, ctx: Context):
         out_label = Label()
         else_lable = Label()
         py_emit(node.test, ctx)
-        ctx.bc.append(
-            Instr("POP_JUMP_IF_FALSE", else_lable, lineno=node.lineno))
+        ctx.bc.append(Instr("POP_JUMP_IF_FALSE", else_lable, lineno=node.lineno))
         for each in node.body:
             py_emit(each, ctx)
         has_orelse = False
