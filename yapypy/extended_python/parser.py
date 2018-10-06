@@ -20,8 +20,7 @@ def to_rbnf_token(tk: tokenize.TokenInfo) -> Tokenizer:
         value = cast(tk.string)
         name = cast('KEYWORD')
     else:
-        value = cast(tk.string) if name not in ('NAME', 'STRING',
-                                                'NUMBER') else tk.string
+        value = cast(tk.string) if name not in ('NAME', 'STRING', 'NUMBER') else tk.string
     return Tokenizer(name, value, *tk.start)
 
 
@@ -36,21 +35,17 @@ def lex(text: t.Union[str, bytes]):
     if isinstance(text, str):
         text = text.encode()
     stream = io.BytesIO(text)
-    return map(to_rbnf_token,
-               filter(not_to_ignore, tokenize.tokenize(stream.__next__)))
+    return map(to_rbnf_token, filter(not_to_ignore, tokenize.tokenize(stream.__next__)))
 
 
 python = Language('python')
-python.namespace.update({
-    **extended_ast.__dict__,
-    **helper.__dict__,
-    **ast.__dict__
-})
+python.namespace.update({**extended_ast.__dict__, **helper.__dict__, **ast.__dict__})
 build_language(RBNF, python, '<grammar>')
 python_parser = python.named_parsers['file_input']
 
 
 def _find_error(source_code, tokens, state):
+
     def _find_nth(string: str, element, nth: int = 0):
         _pos: int = string.find(element)
         if _pos is -1:

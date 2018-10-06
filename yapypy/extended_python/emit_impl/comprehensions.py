@@ -10,8 +10,7 @@ _IsAsync = bool
 
 if sys.version_info >= (3, 7):
 
-    def _emit_comprehension(ctx: Context,
-                            generators: typing.List[ast.comprehension],
+    def _emit_comprehension(ctx: Context, generators: typing.List[ast.comprehension],
                             action) -> typing.Tuple[_IsAsync, ast.expr]:
         labels = []
         is_async_outside = False
@@ -99,8 +98,8 @@ if sys.version_info >= (3, 7):
         return is_async_outside, first_iter
 else:
 
-    def _emit_comprehension(
-            ctx: Context, generators: typing.List[ast.comprehension], action):
+    def _emit_comprehension(ctx: Context, generators: typing.List[ast.comprehension],
+                            action):
         labels = []
         is_async_outside = False
         first_iter: ast.expr
@@ -109,8 +108,7 @@ else:
             if each.is_async:
                 ctx.bc.flags |= CompilerFlags.COROUTINE
                 labels.append((True, begin_label, end_label))
-                exc_found, exc_before_final, final_label = Label(), Label(
-                ), Label()
+                exc_found, exc_before_final, final_label = Label(), Label(), Label()
                 if idx:
                     py_emit(each.iter, ctx)
                     ctx.bc.extend([
@@ -228,8 +226,7 @@ def py_emit(node: ast.DictComp, ctx: Context):
         py_emit(node.key, ctx)
         ctx.bc.append(Instr('MAP_ADD', len(node.generators) + 1))
 
-    is_async_outside, first_iter = _emit_comprehension(ctx, node.generators,
-                                                       delay)
+    is_async_outside, first_iter = _emit_comprehension(ctx, node.generators, delay)
 
     ctx.bc.append(RETURN_VALUE(lineno=node.lineno))
     flags = 0
@@ -305,8 +302,7 @@ def py_emit(node: ast.SetComp, ctx: Context):
         py_emit(node.elt, ctx)
         ctx.bc.append(Instr('SET_ADD', len(node.generators) + 1))
 
-    is_async_outside, first_iter = _emit_comprehension(ctx, node.generators,
-                                                       delay)
+    is_async_outside, first_iter = _emit_comprehension(ctx, node.generators, delay)
 
     ctx.bc.append(RETURN_VALUE(lineno=node.lineno))
 
@@ -381,8 +377,7 @@ def py_emit(node: ast.ListComp, ctx: Context):
         py_emit(node.elt, ctx)
         ctx.bc.append(Instr('LIST_APPEND', len(node.generators) + 1))
 
-    is_async_outside, first_iter = _emit_comprehension(ctx, node.generators,
-                                                       delay)
+    is_async_outside, first_iter = _emit_comprehension(ctx, node.generators, delay)
 
     ctx.bc.append(RETURN_VALUE(lineno=node.lineno))
 
@@ -470,8 +465,7 @@ prepare:
             POP_TOP(),
         ])
 
-    is_async_outside, first_iter = _emit_comprehension(ctx, node.generators,
-                                                       delay)
+    is_async_outside, first_iter = _emit_comprehension(ctx, node.generators, delay)
 
     ctx.bc.extend([
         LOAD_CONST(None),

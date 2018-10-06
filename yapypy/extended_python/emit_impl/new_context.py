@@ -1,9 +1,8 @@
 from yapypy.extended_python.pybc_emit import *
 
 
-def emit_function(
-        node: typing.Union[ast.AsyncFunctionDef, ast.FunctionDef, ast.Lambda],
-        new_ctx: Context, is_async: bool):
+def emit_function(node: typing.Union[ast.AsyncFunctionDef, ast.FunctionDef, ast.Lambda],
+                  new_ctx: Context, is_async: bool):
     """
         https://docs.python.org/3/library/dis.html#opcode-MAKE_FUNCTION
         MAKE_FUNCTION flags:
@@ -83,8 +82,7 @@ def emit_function(
     if make_function_flags & 0x01:
         for each in args.defaults:
             py_emit(each, parent_ctx)
-        parent_ctx.bc.append(
-            Instr('BUILD_TUPLE', len(args.defaults), lineno=node.lineno))
+        parent_ctx.bc.append(Instr('BUILD_TUPLE', len(args.defaults), lineno=node.lineno))
 
     if make_function_flags & 0x02:
         for each in args.kw_defaults:
@@ -97,14 +95,10 @@ def emit_function(
 
         for each in annotation_values:
             py_emit(each, parent_ctx)
-        parent_ctx.bc.append(
-            Instr('LOAD_CONST', tuple(keys), lineno=node.lineno))
+        parent_ctx.bc.append(Instr('LOAD_CONST', tuple(keys), lineno=node.lineno))
 
         parent_ctx.bc.append(
-            Instr(
-                "BUILD_CONST_KEY_MAP",
-                len(annotation_values),
-                lineno=node.lineno))
+            Instr("BUILD_CONST_KEY_MAP", len(annotation_values), lineno=node.lineno))
 
     if make_function_flags & 0x08:
         new_ctx.load_closure(lineno=node.lineno)
@@ -117,14 +111,12 @@ def emit_function(
     parent_ctx.bc.append(Instr('LOAD_CONST', inner_code, lineno=node.lineno))
 
     # when it comes to nested, the name is not generated correctly now.
-    parent_ctx.bc.append(
-        Instr('LOAD_CONST', new_ctx.bc.name, lineno=node.lineno))
+    parent_ctx.bc.append(Instr('LOAD_CONST', new_ctx.bc.name, lineno=node.lineno))
 
-    parent_ctx.bc.append(
-        Instr("MAKE_FUNCTION", make_function_flags, lineno=node.lineno))
+    parent_ctx.bc.append(Instr("MAKE_FUNCTION", make_function_flags, lineno=node.lineno))
 
-    parent_ctx.bc.extend([CALL_FUNCTION(1, lineno=node.lineno)] * len(
-        getattr(node, 'decorator_list', ())))
+    parent_ctx.bc.extend(
+        [CALL_FUNCTION(1, lineno=node.lineno)] * len(getattr(node, 'decorator_list', ())))
 
     if isinstance(node, ast.Lambda):
         pass
@@ -259,8 +251,7 @@ def py_emit(node: ast.ClassDef, ctx: Context):
 
     # *args
     if node.bases:
-        vararg = ast.Tuple(
-            node.bases, ast.Load(), lineno=lineno, col_offset=col_offset)
+        vararg = ast.Tuple(node.bases, ast.Load(), lineno=lineno, col_offset=col_offset)
         ast.fix_missing_locations(vararg)
         py_emit(vararg, parent_ctx)
     else:
@@ -269,10 +260,9 @@ def py_emit(node: ast.ClassDef, ctx: Context):
     # **kwargs
     if node.keywords:
         keys, values = zip(*[(ast.Str(
-            keyword.arg,
-            lineno=keyword.value.lineno,
-            col_offset=keyword.value.col_offset) if keyword.arg else None,
-                              keyword.value) for keyword in node.keywords])
+            keyword.arg, lineno=keyword.value.lineno, col_offset=keyword.value.
+            col_offset) if keyword.arg else None, keyword.value)
+                             for keyword in node.keywords])
 
         ex_dict = ex_ast.ExDict(keys, values, ast.Load())
         ast.fix_missing_locations(ex_dict)
@@ -282,7 +272,7 @@ def py_emit(node: ast.ClassDef, ctx: Context):
 
     parent_ctx.bc.append(CALL_FUNCTION_EX(1))
 
-    parent_ctx.bc.extend([CALL_FUNCTION(1, lineno=lineno)] * len(
-        getattr(node, 'decorator_list', ())))
+    parent_ctx.bc.extend(
+        [CALL_FUNCTION(1, lineno=lineno)] * len(getattr(node, 'decorator_list', ())))
 
     parent_ctx.store_name(node.name, lineno=lineno)

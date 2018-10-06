@@ -14,12 +14,14 @@ from astpretty import pprint
 
 
 class YAPyPyFinder(MetaPathFinder):
+
     @classmethod
     def find_spec(cls, fullname: str, paths, target=None):
         return find_yapypy_module_spec(fullname)
 
 
 class YAPyPyLoader:
+
     def __init__(self, mod_name, mod_path):
         self.mod_name = mod_name
         self.mod_path = mod_path
@@ -43,6 +45,7 @@ class YAPyPyLoader:
 
 
 def find_yapypy_module_spec(names):
+
     def try_find(prospective_path):
         path_secs = (prospective_path, *names.split('.'))
         *init, end = path_secs
@@ -56,8 +59,7 @@ def find_yapypy_module_spec(names):
                 module_path = directory.into(each_path_str)
                 yield get_yapypy_module_spec_from_path(names, str(module_path))
 
-            elif each_path_str == end and each.is_dir(
-            ) and '__init__.py' in each:
+            elif each_path_str == end and each.is_dir() and '__init__.py' in each:
                 yield from try_find(str(each))
 
     paths = sys.path

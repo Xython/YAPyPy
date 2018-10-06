@@ -48,10 +48,9 @@ class SymTable(INamedList, metaclass=trait(as_namedlist)):
                cts=None):
         return SymTable(
             requires if requires is not None else self.requires,
-            entered if entered is not None else self.entered,
-            explicit_nonlocals if explicit_nonlocals is not None else
-            self.explicit_nonlocals, explicit_globals
-            if explicit_globals is not None else self.explicit_globals,
+            entered if entered is not None else self.entered, explicit_nonlocals
+            if explicit_nonlocals is not None else self.explicit_nonlocals,
+            explicit_globals if explicit_globals is not None else self.explicit_globals,
             parent if parent is not None else self.parent,
             children if children is not None else self.children,
             depth if depth is not None else self.depth,
@@ -98,20 +97,19 @@ class SymTable(INamedList, metaclass=trait(as_namedlist)):
         nonlocals = self.explicit_nonlocals
         freevars = self.analyzed.freevars
         freevars.update(
-            nonlocals.union({
-                each
-                for each in requires
-                if self.parent.can_resolve_by_parents(each)
-            }))
+            nonlocals.union(
+                {each
+                 for each in requires
+                 if self.parent.can_resolve_by_parents(each)}))
 
         return freevars
 
     def resolve_cellvars(self):
+
         def fetched_from_outside(sym_tb: SymTable):
             return sym_tb.analyzed.freevars.union(
                 analyzed.borrowed_cellvars,
-                *(fetched_from_outside(each.analyze())
-                  for each in sym_tb.children))
+                *(fetched_from_outside(each.analyze()) for each in sym_tb.children))
 
         analyzed = self.analyzed
         cellvars = analyzed.cellvars
@@ -141,11 +139,9 @@ class SymTable(INamedList, metaclass=trait(as_namedlist)):
             return self
 
     def show_resolution(self):
+
         def show_resolution(this):
-            return [
-                this.analyzed,
-                [show_resolution(each) for each in this.children]
-            ]
+            return [this.analyzed, [show_resolution(each) for each in this.children]]
 
         return pformat(show_resolution(self))
 
@@ -271,8 +267,7 @@ def _visit_ann_assign(self: 'ASTTagger', node: ast.AnnAssign):
     return node
 
 
-def _visit_fn_def(self: 'ASTTagger',
-                  node: Union[ast.FunctionDef, ast.AsyncFunctionDef]):
+def _visit_fn_def(self: 'ASTTagger', node: Union[ast.FunctionDef, ast.AsyncFunctionDef]):
 
     self.symtable.entered.add(node.name)
     args = node.args
@@ -327,6 +322,7 @@ def _visit_lam(self: 'ASTTagger', node: ast.Lambda):
 
 
 class ASTTagger(ast.NodeTransformer):
+
     def __init__(self, symtable: SymTable):
         self.symtable = symtable
 

@@ -5,6 +5,7 @@ import typing as t
 
 
 class ExprContextFixer(ast.NodeVisitor):
+
     def __init__(self, ctx):
         self.ctx = ctx
 
@@ -34,16 +35,17 @@ _fix_del = ExprContextFixer(ast.Del()).visit
 
 
 class Loc:
+
     def __matmul__(self, other: t.Union[ast.AST, Tokenizer]):
         return {
-            'lineno':
-            other.lineno,
+            'lineno': other.lineno,
             'col_offset':
             other.col_offset if hasattr(other, 'col_offset') else other.colno
         }
 
 
 class LocatedError(Exception):
+
     def __init__(self, lineno: int, exc: Exception):
         self.lineno = lineno
         self.exc = exc
@@ -155,10 +157,11 @@ def arith_expr_rewrite(head, tail):
     if tail:
         for op, each in tail:
 
-            head = ast.BinOp(head, {
-                '+': ast.Add,
-                '-': ast.Sub
-            }[op.value](), each, **loc @ op)
+            head = ast.BinOp(head,
+                             {
+                                 '+': ast.Add,
+                                 '-': ast.Sub
+                             }[op.value](), each, **loc @ op)
     return head
 
 
@@ -167,7 +170,8 @@ def term_rewrite(head, tail):
         for op, each in tail:
 
             head = ast.BinOp(
-                head, {
+                head,
+                {
                     '*': ast.Mult,
                     '@': ast.MatMult,
                     '%': ast.Mod,
@@ -282,8 +286,7 @@ def try_stmt_rewrite(mark, body, excs, rescues, orelse, final):
         for (type, name), body in zip(excs, rescues):
             yield ast.ExceptHandler(type, name, body)
 
-    return ast.Try(body, list(handlers()), orelse or [], final or [],
-                   **loc @ mark)
+    return ast.Try(body, list(handlers()), orelse or [], final or [], **loc @ mark)
 
 
 def with_stmt_rewrite(mark, items, body, is_async=False):
@@ -304,8 +307,8 @@ def check_call_args(loc, seq: t.List[ast.expr]):
     return seq
 
 
-def atom_rewrite(loc, name, number, strs, namedc, ellipsis, dict, is_dict,
-                 is_gen, is_list, comp, yield_expr):
+def atom_rewrite(loc, name, number, strs, namedc, ellipsis, dict, is_dict, is_gen,
+                 is_list, comp, yield_expr):
     if name:
         return ast.Name(name.value, ast.Load(), **loc @ name)
 
@@ -327,11 +330,9 @@ def atom_rewrite(loc, name, number, strs, namedc, ellipsis, dict, is_dict,
     if is_gen:
         if yield_expr:
             return yield_expr
-        return comp(is_tuple=True) if comp else ast.Tuple([], ast.Load(), **
-                                                          loc @ is_gen)
+        return comp(is_tuple=True) if comp else ast.Tuple([], ast.Load(), **loc @ is_gen)
 
     if is_list:
-        return comp(is_list=True) if comp else ast.List([], ast.Load(), **
-                                                        loc @ is_list)
+        return comp(is_list=True) if comp else ast.List([], ast.Load(), **loc @ is_list)
 
     raise TypeError

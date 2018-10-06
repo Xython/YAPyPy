@@ -68,11 +68,7 @@ class Context(INamedList, metaclass=trait(as_namedlist)):
 
         bc.cellvars.extend(sym_tb.cellvars)
         return Context(
-            parent=self,
-            bc=bc,
-            sym_tb=sym_tb,
-            current_label_stack=[],
-            cts=frozenset(cts))
+            parent=self, bc=bc, sym_tb=sym_tb, current_label_stack=[], cts=frozenset(cts))
 
     def load_name(self, name, lineno=None):
         sym_tb = self.sym_tb
@@ -116,11 +112,9 @@ class Context(INamedList, metaclass=trait(as_namedlist)):
 
         for each in self.sym_tb.freevars:
             if each in parent.sym_tb.cellvars:
-                parent.bc.append(
-                    Instr('LOAD_CLOSURE', CellVar(each), lineno=lineno))
+                parent.bc.append(Instr('LOAD_CLOSURE', CellVar(each), lineno=lineno))
             elif each in parent.sym_tb.borrowed_cellvars:
-                parent.bc.append(
-                    Instr('LOAD_CLOSURE', FreeVar(each), lineno=lineno))
+                parent.bc.append(Instr('LOAD_CLOSURE', FreeVar(each), lineno=lineno))
             else:
                 raise RuntimeError
 
