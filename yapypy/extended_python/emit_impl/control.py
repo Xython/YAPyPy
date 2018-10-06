@@ -403,17 +403,17 @@ def py_emit(node: ast.With, ctx: Context):
     test:
     >>> with open(os.devnull, "w") as fp, open(os.devnull, "w"), open(os.devnull, "w") as fpp:
     >>>     fp.write("emmm")
-    >>>     fpp.wirte("ummm")
-    >>>     assert fp.closed, fpp.closed == False, False
-    >>> assert fp.closed, fpp.closed == True, True
-
+    >>>     fpp.write("ummm")
+    >>>     assert not fp.closed and not fpp.closed
+    >>> assert fp.closed and fpp.closed, True
+    
     >>> a = -1
     >>> for i in range(10):
     >>>     with open(os.devnull, "w") as fp:
-    >>>         asssert a, fp.closed == -1, False
+    >>>         assert not fp.closed
     >>>         a = i
     >>>         break
-    >>> asssert a, fp.closed == 0, True
+    >>> assert not a and fp.closed, True
 
     >>> s = 0
     >>> for x in [1, 2, 3, 4]:
