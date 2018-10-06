@@ -17,7 +17,7 @@ setup(
     url='https://github.com/Xython/YAPyPy',
     author='Xython',
     author_email='twshere@outlook.com',  # billing email
-    packages=['yapypy', 'yapypy.cmd', 'yapypy.extended_python'],
+    packages=['yapypy', 'yapypy.cmd', 'yapypy.extended_python', 'yapypy.utils', 'yapypy.extended_python.emit_impl'],
     entry_points={'console_scripts': ['yapypy=yapypy.cmd.cli:python_ex_cli']},
     install_requires=[
         'Redy', 'rbnf>=0.3.21', 'wisepy', 'bytecode==0.7.0', 'yapf',

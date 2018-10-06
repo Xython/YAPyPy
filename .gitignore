@@ -5,6 +5,8 @@ __pycache__/
 *.idea/
 # C extensions
 *.so
+out_*.py
+*.log
 
 # Distribution / packaging
 .Python
@@ -103,3 +105,4 @@ venv.bak/
 # mypy
 .mypy_cache/
 .DS_Store
+test_*.py

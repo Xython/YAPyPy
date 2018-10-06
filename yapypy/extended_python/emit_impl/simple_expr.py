@@ -46,9 +46,20 @@ def py_emit(node: ast.Str, ctx: Context):
 
 @py_emit.case(ast.JoinedStr)
 def py_emit(node: ast.JoinedStr, ctx: Context):
-    for each in node.values:
-        py_emit(each, ctx)
-    ctx.bc.append(BUILD_STRING(len(node.values), lineno=node.lineno))
+    kinds = {type(each) for each in node.values}
+    if ast.Bytes in kinds:
+        if len(kinds) > 1:
+            exc = SyntaxError()
+            exc.msg = 'cannot mix bytes and nonbytes literals'
+            exc.lineno = node.lineno
+            raise exc
+        node.values: typing.List[ast.Bytes]
+        bytes_const = b''.join(each.s for each in node.values)
+        ctx.bc.append(LOAD_CONST(bytes_const, lineno=node.lineno))
+    else:
+        for each in node.values:
+            py_emit(each, ctx)
+        ctx.bc.append(BUILD_STRING(len(node.values), lineno=node.lineno))
 
 
 @py_emit.case(ast.NameConstant)
@@ -91,10 +102,23 @@ def py_emit(node: ast.Slice, ctx: Context):
         ctx.bc.append(BUILD_SLICE(2))
         return
 
-    n = max([i for i, piece in enumerate(slices) if piece is not None]) + 1
+    if slices[-1]:
+        n = 3
+    else:
+        n = 2
     for each in slices[:n]:
         if not each:
             ctx.bc.append(LOAD_CONST(None))
         else:
             py_emit(each, ctx)
     ctx.bc.append(BUILD_SLICE(n))
+
+
+@py_emit.case(ast.Bytes)
+def py_emit(node: ast.Bytes, ctx: Context):
+    ctx.bc.append(LOAD_CONST(node.s, lineno=node.lineno))
+
+
+@py_emit.case(ast.Ellipsis)
+def py_emit(node: ast.Ellipsis, ctx: Context):
+    ctx.bc.append(LOAD_CONST(..., lineno=node.lineno))
