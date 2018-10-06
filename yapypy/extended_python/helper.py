@@ -40,7 +40,7 @@ class Loc:
         return {
             'lineno': other.lineno,
             'col_offset':
-            other.col_offset if hasattr(other, 'col_offset') else other.colno
+                other.col_offset if hasattr(other, 'col_offset') else other.colno
         }
 
 
@@ -91,7 +91,6 @@ def str_maker(*strs: Tokenizer):
 
 def atom_expr_rewrite(a: t.Optional[Tokenizer], atom: ast.AST,
                       trailers: t.List[t.Callable[[ast.AST], ast.Suite]]):
-
     for each in trailers:
         atom = each(atom)
 
@@ -103,7 +102,6 @@ def atom_expr_rewrite(a: t.Optional[Tokenizer], atom: ast.AST,
 def shift_expr_rewrite(head, tail):
     if tail:
         for op, each in tail:
-
             head = ast.BinOp(head,
                              {
                                  '>>': ast.RShift,
@@ -130,9 +128,9 @@ def comp_op_rewrite(op: t.Union[Tokenizer, t.List[Tokenizer]]):
         '<>': lambda: raise_exp(NotImplemented),
         '!=': ast.NotEq,
         'in': ast.In,
-        ('is', ): ast.Is,
+        ('is',): ast.Is,
         ('is', 'not'): ast.IsNot,
-        ('not', 'in'): ast.NotIn
+        ('not', 'in'): ast.NotIn,
     }[op]()
 
 
@@ -161,19 +159,21 @@ def and_expr_rewrite(head, tail):
 def arith_expr_rewrite(head, tail):
     if tail:
         for op, each in tail:
-
-            head = ast.BinOp(head,
-                             {
-                                 '+': ast.Add,
-                                 '-': ast.Sub
-                             }[op.value](), each, **loc @ op)
+            head = ast.BinOp(
+                head,
+                {
+                    '+': ast.Add,
+                    '-': ast.Sub
+                }[op.value](),
+                each,
+                **loc @ op,
+            )
     return head
 
 
 def term_rewrite(head, tail):
     if tail:
         for op, each in tail:
-
             head = ast.BinOp(
                 head,
                 {
@@ -190,7 +190,6 @@ def term_rewrite(head, tail):
 
 
 def factor_rewrite(mark: Tokenizer, factor, power):
-
     return power if power else ast.UnaryOp(
         **(loc @ mark),
         op={
@@ -198,11 +197,11 @@ def factor_rewrite(mark: Tokenizer, factor, power):
             '+': ast.UAdd,
             '-': ast.USub
         }[mark.value](),
-        operand=factor)
+        operand=factor,
+    )
 
 
 def split_args_helper(arglist):
-
     positional = []
     keywords = []
     for each in arglist:
@@ -239,12 +238,11 @@ def augassign_rewrite(it: Tokenizer):
         '^=': ast.BitXor,
         '<<=': ast.LShift,
         '>>=': ast.RShift,
-        '**=': ast.Pow
+        '**=': ast.Pow,
     }[it.value]
 
 
 def expr_stmt_rewrite(lhs, ann, aug, aug_exp, rhs: t.Optional[list]):
-
     if rhs:
         as_store(lhs)
         *init, end = rhs
