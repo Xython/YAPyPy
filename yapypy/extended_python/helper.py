@@ -182,7 +182,10 @@ def term_rewrite(head, tail):
                     '%': ast.Mod,
                     '//': ast.FloorDiv,
                     '/': ast.Div
-                }[op.value](), each, **loc @ op)
+                }[op.value](),
+                each,
+                **loc @ op,
+            )
     return head
 
 
