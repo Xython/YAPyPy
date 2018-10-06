@@ -13,15 +13,16 @@ __all__ = ['metaclasses', 'as_namedlist', 'trait', 'INamedList']
 
 
 def metaclasses(*clses: type, typename='metametaclass'):
+
     def __new__(mcs, name, base, namespace):
-        bases = tuple(
-            cls(f'{cls.__name__}{name}', base, namespace) for cls in clses)
+        bases = tuple(cls(f'{cls.__name__}{name}', base, namespace) for cls in clses)
         return type(name, bases, namespace)
 
     return type(typename, (type, ), dict(__new__=__new__))
 
 
 def trait(*traits):
+
     def apply(name, bases, namespace):
         for each in traits:
             bases, namespace = each(name, bases, namespace)
@@ -71,8 +72,7 @@ def as_namedlist(name, bases, namespace: dict):
             setter_code.append(Instr('LOAD_CONST', None))
             setter_code.append(Instr('RETURN_VALUE'))
             setter_code.flags = CompilerFlags.OPTIMIZED | CompilerFlags.NEWLOCALS | CompilerFlags.NOFREE
-            setter_fn = getter_fn.setter(
-                get_func_from_code(setter_code.to_code(), k))
+            setter_fn = getter_fn.setter(get_func_from_code(setter_code.to_code(), k))
             namespace[k] = setter_fn
 
         init_code = Bytecode()
@@ -104,8 +104,7 @@ def as_namedlist(name, bases, namespace: dict):
 
         init_code.flags = CompilerFlags.OPTIMIZED | CompilerFlags.NEWLOCALS | CompilerFlags.NOFREE
 
-        namespace['__init__'] = get_func_from_code(init_code.to_code(),
-                                                   '__init__')
+        namespace['__init__'] = get_func_from_code(init_code.to_code(), '__init__')
 
         fmt = '{}({})'.format(name, ', '.join(f'{arg}={{!r}}' for arg in args))
         str_code = Bytecode()
@@ -118,11 +117,9 @@ def as_namedlist(name, bases, namespace: dict):
 
         str_code.flags = CompilerFlags.OPTIMIZED | CompilerFlags.NEWLOCALS | CompilerFlags.NOFREE
 
-        namespace['__str__'] = get_func_from_code(str_code.to_code(),
-                                                  '__str__')
+        namespace['__str__'] = get_func_from_code(str_code.to_code(), '__str__')
 
-    return bases if any(
-        issubclass(t, list) for t in bases) else (*bases, list), namespace
+    return bases if any(issubclass(t, list) for t in bases) else (*bases, list), namespace
 
 
 def get_func_from_code(code_object, fn_name):

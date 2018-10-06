@@ -2,6 +2,7 @@ from bytecode import Bytecode, UNSET, Label, BasicBlock, ConcreteBytecode, Contr
 
 
 def dump_bytecode(bytecode, *, lineno=False, io=None):
+
     def format_line(index, line):
         nonlocal cur_lineno, prev_lineno
         if lineno:

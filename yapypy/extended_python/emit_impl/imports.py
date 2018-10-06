@@ -53,7 +53,7 @@ def py_emit(node: ast.ImportFrom, ctx: Context):
     ctx.bc.append(LOAD_CONST(names, lineno=lineno))
     ctx.bc.append(Instr("IMPORT_NAME", node.module, lineno=lineno))
 
-    if names == ('*',):
+    if names == ('*', ):
         ctx.bc.append(Instr('IMPORT_STAR', lineno=lineno))
 
     else:

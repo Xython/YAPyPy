@@ -21,8 +21,7 @@ def py_emit(node: ast.Tuple, ctx: Context):
     expr_ctx = type(node.ctx)
 
     star_indices = [
-        idx for idx, each in enumerate(node.elts)
-        if isinstance(each, ast.Starred)
+        idx for idx, each in enumerate(node.elts) if isinstance(each, ast.Starred)
     ]
     if star_indices:
         elts = node.elts
@@ -103,8 +102,7 @@ def py_emit(node: ast.List, ctx: Context):
     expr_ctx = type(node.ctx)
 
     star_indices = [
-        idx for idx, each in enumerate(node.elts)
-        if isinstance(each, ast.Starred)
+        idx for idx, each in enumerate(node.elts) if isinstance(each, ast.Starred)
     ]
     if star_indices:
         elts = node.elts
@@ -340,7 +338,9 @@ def py_emit(node: ast.Attribute, ctx: Context):
     }.get(type(node.ctx))
 
     assert command is not None
-    ctx.bc.append(command(
-        node.attr,
-        lineno=node.lineno,
-    ), )
+    ctx.bc.append(
+        command(
+            node.attr,
+            lineno=node.lineno,
+        ),
+    )
