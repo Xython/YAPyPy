@@ -33,7 +33,7 @@ def easy_debug(code: str, should_exec=False, ctx=None):
     print(dis.dis(c))
     print("-----------astpretty")
     astpretty.pprint(ast.parse(code))
-    print("----------- Python exec result")
+    print("-----------Python exec result")
     exec(code, ctx or {})
     print("-----------YaPyPy exec result")
     if should_exec:

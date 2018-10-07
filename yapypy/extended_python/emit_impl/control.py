@@ -395,7 +395,7 @@ def py_emit(node: ast.Continue, ctx: Context):
 @py_emit.case(ast.With)
 def py_emit(node: ast.With, ctx: Context):
     """
-    title: With
+    title: with
     prepare:
     >>> import os
     >>> import unittest
