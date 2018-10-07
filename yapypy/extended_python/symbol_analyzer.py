@@ -201,7 +201,7 @@ def _visit_global(self, node: ast.Global):
 
 
 def _visit_nonlocal(self, node: ast.Nonlocal):
-    self.symtable.explicit_globals.update(node.names)
+    self.symtable.explicit_nonlocals.update(node.names)
     return node
 
 
@@ -219,7 +219,7 @@ def _visit_cls(self: 'ASTTagger', node: ast.ClassDef):
     new = self.symtable.enter_new()
 
     new.entered.add('__module__')
-    new.entered.add('__qualname__')
+    new.entered.add('__qualname__')  # pep-3155 nested name.
 
     new_tagger = ASTTagger(new)
     new.cts.add(ContextType.ClassDef)
@@ -246,6 +246,7 @@ def _visit_list_set_gen_comp(self: 'ASTTagger', node: ast.ListComp):
 
     if any(each.is_async for each in node.generators):
         new.cts.add(ContextType.Coroutine)
+
     node.generators = [head, *[new_tagger.visit(each) for each in tail]]
     return Tag(node, new)
 
