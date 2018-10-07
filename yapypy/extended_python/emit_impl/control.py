@@ -235,6 +235,83 @@ def py_emit(node: ast.For, ctx: Context):
     ctx.bc.append(for_loop_with_orelse_out)
 
 
+@py_emit.case(ast.AsyncFor)
+def py_emit(node: ast.AsyncFor, ctx: Context):
+    """
+    title: async for
+    prepare:
+    >>> import unittest
+    >>> self: unittest.TestCase
+    >>> from asyncio import sleep, Task, get_event_loop
+    >>> class AsyncIteratorWrapper:
+    >>>     def __init__(self, obj):
+    >>>         self._it = iter(obj)
+    >>>     def __aiter__(self):
+    >>>         return self
+    >>>     async def __anext__(self):
+    >>>         try:
+    >>>             value = next(self._it)
+    >>>         except StopIteration:
+    >>>             raise StopAsyncIteration
+    >>>         return value
+    test:
+    >>> async def f():
+    >>>     a = 0
+    >>>     async for x in AsyncIteratorWrapper([1, 2, 3]):
+    >>>         a += x
+    >>>     return a
+    >>> result = get_event_loop().run_until_complete(f())
+    >>> assert result == 6
+    """
+    iter_in = Label()
+    body_in = Label()
+    except_in = Label()
+    try_clean_up = Label()
+    end = Label()
+    py_emit(node.iter, ctx)
+    ctx.bc.append(SETUP_LOOP(end, lineno=node.lineno))
+    ctx.bc.append(GET_AITER(lineno=node.lineno))
+    ctx.bc.append(GET_AITER(lineno=node.lineno))
+    ctx.push_current_block(BlockType.LOOP, iter_in)
+    ctx.bc.append(iter_in)
+    ctx.bc.append(SETUP_EXCEPT(except_in, lineno=node.lineno))
+    ctx.bc.append(GET_ANEXT(lineno=node.lineno))
+    ctx.bc.append(LOAD_CONST(None, lineno=node.lineno))
+    ctx.bc.append(YIELD_FROM(lineno=node.lineno))
+    py_emit(node.target, ctx)
+    ctx.bc.append(POP_BLOCK(lineno=node.lineno))
+    ctx.bc.append(JUMP_FORWARD(body_in, lineno=node.lineno))
+
+    ctx.bc.append(except_in)
+    ctx.push_current_block(BlockType.EXCEPT)
+    ctx.bc.append(DUP_TOP(lineno=node.lineno))
+    ctx.bc.append(LOAD_GLOBAL("StopAsyncIteration", lineno=node.lineno))
+    ctx.bc.append(COMPARE_OP(Compare.EXC_MATCH, lineno=node.lineno))
+    ctx.bc.append(POP_JUMP_IF_TRUE(try_clean_up, lineno=node.lineno))
+    ctx.bc.append(END_FINALLY(lineno=node.lineno))
+    ctx.pop_current_block(BlockType.EXCEPT, lineno=node.lineno)
+
+    ctx.bc.append(body_in)
+    for each in node.body:
+        py_emit(each, ctx)
+    ctx.bc.append(JUMP_ABSOLUTE(iter_in))
+
+    ctx.bc.append(try_clean_up)
+    ctx.bc.append(POP_TOP(lineno=node.lineno))
+    ctx.bc.append(POP_TOP(lineno=node.lineno))
+    ctx.bc.append(POP_TOP(lineno=node.lineno))
+    ctx.bc.append(POP_EXCEPT(lineno=node.lineno))
+    ctx.bc.append(POP_TOP(lineno=node.lineno))
+    ctx.bc.append(POP_BLOCK(lineno=node.lineno))
+    ctx.pop_current_block(BlockType.LOOP, lineno=node.lineno)
+
+    ctx.bc.append(LOAD_CONST(None, lineno=node.lineno))
+    for each in node.orelse:
+        py_emit(each, ctx)
+    ctx.bc.append(end)
+    return
+
+
 @py_emit.case(ast.Break)
 def py_emit(node: ast.Break, ctx: Context):
     """
@@ -434,21 +511,20 @@ def py_emit(node: ast.With, ctx: Context):
         if each.optional_vars:
             py_emit(each.optional_vars, ctx)
         else:
-            ctx.bc.append(Instr("POP_TOP", lineno=node.lineno))
+            ctx.bc.append(POP_TOP(lineno=node.lineno))
 
     for each in node.body:
         py_emit(each, ctx)
 
     while flabel_stack:
-        ctx.bc.append(Instr("POP_BLOCK", lineno=node.lineno))
+        ctx.bc.append(POP_BLOCK(lineno=node.lineno))
         ctx.pop_current_block(BlockType.FINALLY_TRY, node.lineno)
 
-        ctx.bc.append(Instr("LOAD_CONST", None, lineno=node.lineno))
+        ctx.bc.append(LOAD_CONST(None, lineno=node.lineno))
         finally_label = flabel_stack.pop(-1)
         ctx.push_current_block(BlockType.FINALLY_END, finally_label)
         ctx.bc.append(finally_label)
         ctx.bc.append(Instr("WITH_CLEANUP_START", lineno=node.lineno))
         ctx.bc.append(Instr("WITH_CLEANUP_FINISH", lineno=node.lineno))
-        ctx.bc.append(Instr("END_FINALLY", lineno=node.lineno))
+        ctx.bc.append(END_FINALLY(lineno=node.lineno))
         ctx.pop_current_block(BlockType.FINALLY_END, node.lineno)
-
