@@ -185,6 +185,10 @@ def SETUP_LOOP(label: Label, *, lineno=None):
     return Instr("SETUP_LOOP", label, lineno=lineno)
 
 
+def CONTINUE_LOOP(label: Label, *, lineno=None):
+    return Instr("CONTINUE_LOOP", label, lineno=lineno)
+
+
 def DUP_TOP(*, lineno=None):
     return Instr('DUP_TOP', lineno=lineno)
 
