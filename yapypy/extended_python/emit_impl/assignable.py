@@ -9,14 +9,23 @@ def py_emit(node: ast.Tuple, ctx: Context):
     >>> x = 1
     >>> assert (x, 2, 3) == (1, 2, 3)
     >>> x, y = 2, 3
-    >>> assert (x , y) = (2, 3)
+    >>> assert (x , y) == (2, 3)
     >>> x, *y, z = 2, 3, 5
     >>> y, = y
     >>> assert x == 2  and  y == 3 and z == 5
     >>> x, *y, z, t = 2, 3, 5, 5
     >>> assert t == 5
-    >>> assert  (1, *(2, 3, 4), 5, *(6, 7), 8) == (1, 2, 3, 4, 5, 6, 7, 8)
+    >>> assert (1, *(2, 3, 4), 5, *(6, 7)) == (1, 2, 3, 4, 5, 6, 7)
+    >>> assert (1, *(2, 3, 4), 5, *(6, 7), 8) == (1, 2, 3, 4, 5, 6, 7, 8)
     >>> del (x, y, z, t)
+    >>> var_exists = None
+    >>> try:
+    >>>     x
+    >>> except NameError:
+    >>>     var_exists = False
+    >>> else:
+    >>>     var_exists = True
+    >>> assert var_exists == False
     """
     expr_ctx = type(node.ctx)
 
@@ -96,8 +105,23 @@ def py_emit(node: ast.List, ctx: Context):
     >>> assert x == 2 and y == 3 and z == 5
     >>> [x, *y, z, t] = [2, 3, 5, 5]
     >>> assert t == 5
-    >>> assert  [1, *[2, 3, 4], 5, *[6, 7], 8] == [1, 2, 3, 4, 5, 6, 7, 8]
-    >>> del [x, y, z, t]
+    >>> assert [1, *[2, 3, 4], 5, *[6, 7]] == [1, 2, 3, 4, 5, 6, 7]
+    >>> assert [1, *[2, 3, 4], 5, *[6, 7], 8] == [1, 2, 3, 4, 5, 6, 7, 8]
+    >>> a = [1, 2, 3]
+    >>> del a[1]
+    >>> assert a == [1, 3]
+    >>> b = [1, 2, 3]
+    >>> del b[1:]
+    >>> assert b == [1]
+    >>> del [x, y, z, t, a, b]
+    >>> var_exists = None
+    >>> try:
+    >>>     x
+    >>> except NameError:
+    >>>     var_exists = False
+    >>> else:
+    >>>     var_exists = True
+    >>> assert var_exists == False
     """
     expr_ctx = type(node.ctx)
 
