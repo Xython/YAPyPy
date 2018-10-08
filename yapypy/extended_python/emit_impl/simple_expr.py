@@ -28,8 +28,10 @@ def py_emit(node: ast.Set, ctx: Context):
             py_emit(elt, ctx)
             n += 1
     ctx.bc.append(BUILD_SET(n, lineno=node.lineno))
+
     for starred in starreds:
         py_emit(starred.value, ctx)
+
     ctx.bc.append(
         Instr(
             "BUILD_SET_UNPACK",

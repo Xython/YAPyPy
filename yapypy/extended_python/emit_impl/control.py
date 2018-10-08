@@ -365,7 +365,7 @@ def py_emit(node: ast.Continue, ctx: Context):
     elif blktype == BlockType.EXCEPT or blktype == BlockType.FINALLY_TRY:
         blkstack = ctx.get_block_stack()
         i = len(blkstack) - 1
-        while (i >= 0 and blkstack[i] != BlockType.LOOP):
+        while i >= 0 and blkstack[i] != BlockType.LOOP:
             i -= 1
             blktype, _ = blkstack[i]
             if blktype == BlockType.LOOP:
