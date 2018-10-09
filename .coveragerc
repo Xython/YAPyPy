@@ -2,6 +2,11 @@
 branch = True
 source = yapypy
 
+[paths]
+source=
+    src/
+    .tox/py*/lib/python*/site-packages/
+
 [report]
 exclude_lines =
     if self.debug:
