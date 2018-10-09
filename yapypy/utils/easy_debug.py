@@ -29,6 +29,7 @@ def yapypy_test(file_name: str, should_exec=False, ctx=None):
     if should_exec:
         exec(c, ctx or {})
 
+    return True
 
 def yapypy_debug(code: str, should_exec=False, ctx=None):
     res = to_tagged_ast(parse(code).result)
