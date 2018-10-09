@@ -6,7 +6,7 @@ from yapypy.extended_python.pybc_emit import *
 @py_emit.case(ast.IfExp)
 def py_emit(node: ast.IfExp, ctx: Context):
     """
-    title: IfExp
+    title: if exp
     test:
     >>> a = 1 if 1 else 2
     >>> assert a == 1
@@ -16,9 +16,9 @@ def py_emit(node: ast.IfExp, ctx: Context):
     py_emit(node.test, ctx)
     else_label = Label()
     out_label = Label()
-    ctx.bc.append(Instr("POP_JUMP_IF_FALSE", else_label, lineno=node.lineno))
+    ctx.bc.append(POP_JUMP_IF_FALSE(else_label, lineno=node.lineno))
     py_emit(node.body, ctx)
-    ctx.bc.append(Instr("JUMP_FORWARD", out_label, lineno=node.lineno))
+    ctx.bc.append(JUMP_FORWARD(out_label, lineno=node.lineno))
     ctx.bc.append(else_label)
     py_emit(node.orelse, ctx)
     ctx.bc.append(out_label)
@@ -27,7 +27,7 @@ def py_emit(node: ast.IfExp, ctx: Context):
 @py_emit.case(ast.If)
 def py_emit(node: ast.If, ctx: Context):
     """
-    title: If
+    title: if
     test:
     >>> x = 0
     >>> if 1:
@@ -110,13 +110,13 @@ def py_emit(node: ast.If, ctx: Context):
         out_label = Label()
         else_lable = Label()
         py_emit(node.test, ctx)
-        ctx.bc.append(Instr("POP_JUMP_IF_FALSE", else_lable, lineno=node.lineno))
+        ctx.bc.append(POP_JUMP_IF_FALSE(else_lable, lineno=node.lineno))
         for each in node.body:
             py_emit(each, ctx)
         has_orelse = False
         if node.orelse:
             has_orelse = True
-            ctx.bc.append(Instr("JUMP_FORWARD", out_label, lineno=node.lineno))
+            ctx.bc.append(JUMP_FORWARD(out_label, lineno=node.lineno))
             ctx.bc.append(else_lable)
             for each in node.orelse:
                 py_emit(each, ctx)
@@ -235,6 +235,107 @@ def py_emit(node: ast.For, ctx: Context):
     ctx.bc.append(for_loop_with_orelse_out)
 
 
+@py_emit.case(ast.AsyncFor)
+def py_emit(node: ast.AsyncFor, ctx: Context):
+    """
+    title: async for
+    prepare:
+    >>> import unittest
+    >>> self: unittest.TestCase
+    >>> from asyncio import sleep, Task, get_event_loop
+    >>> class AsyncIteratorWrapper:
+    >>>     def __init__(self, obj):
+    >>>         self._it = iter(obj)
+    >>>     def __aiter__(self):
+    >>>         return self
+    >>>     async def __anext__(self):
+    >>>         try:
+    >>>             value = next(self._it)
+    >>>         except StopIteration:
+    >>>             raise StopAsyncIteration
+    >>>         return value
+    test:
+    >>> async def f():
+    >>>     a = 0
+    >>>     async for x in AsyncIteratorWrapper([1, 2, 3]):
+    >>>         a += x
+    >>>     return a
+    >>> result = get_event_loop().run_until_complete(f())
+    >>> assert result == 6
+
+    >>> async def f():
+    >>>     a = 0
+    >>>     async for x in AsyncIteratorWrapper([1, 2, 3]):
+    >>>         a += x
+    >>>     else:
+    >>>         a = -1
+    >>>     return a
+    >>> result = get_event_loop().run_until_complete(f())
+    >>> assert result == -1
+
+    >>> async def f():
+    >>>     a = 0
+    >>>     async for k, v in AsyncIteratorWrapper([(1, 2), (3, 4)]):
+    >>>         a += k
+    >>>         a += v
+    >>>     return a
+    >>> result = get_event_loop().run_until_complete(f())
+    >>> assert result == 1 + 2 + 3 + 4
+    """
+    iter_in = Label()
+    body_in = Label()
+    except_in = Label()
+    try_clean_up = Label()
+    end = Label()
+
+    ctx.bc.append(SETUP_LOOP(end, lineno=node.lineno))
+    ctx.push_current_block(BlockType.LOOP, iter_in)
+    py_emit(node.iter, ctx)
+    ctx.bc.append(GET_AITER(lineno=node.lineno))
+
+    if sys.version_info < (3, 7):
+        ctx.bc.append(LOAD_CONST(None,lineno=node.lineno))
+        ctx.bc.append(YIELD_FROM(lineno=node.lineno))
+
+    ctx.bc.append(iter_in)
+    ctx.bc.append(SETUP_EXCEPT(except_in, lineno=node.lineno))
+    ctx.bc.append(GET_ANEXT(lineno=node.lineno))
+    ctx.bc.append(LOAD_CONST(None, lineno=node.lineno))
+    ctx.bc.append(YIELD_FROM(lineno=node.lineno))
+    py_emit(node.target, ctx)
+    ctx.bc.append(POP_BLOCK(lineno=node.lineno))
+    ctx.bc.append(JUMP_FORWARD(body_in, lineno=node.lineno))
+
+    ctx.bc.append(except_in)
+    ctx.push_current_block(BlockType.EXCEPT)
+    ctx.bc.append(DUP_TOP(lineno=node.lineno))
+    ctx.bc.append(LOAD_GLOBAL("StopAsyncIteration", lineno=node.lineno))
+    ctx.bc.append(COMPARE_OP(Compare.EXC_MATCH,lineno=node.lineno))
+    ctx.bc.append(POP_JUMP_IF_TRUE(try_clean_up, lineno=node.lineno))
+    ctx.bc.append(END_FINALLY(lineno=node.lineno))
+    ctx.pop_current_block(BlockType.EXCEPT, lineno=node.lineno)
+
+    ctx.bc.append(body_in)
+    for each in node.body:
+        py_emit(each, ctx)
+    ctx.bc.append(JUMP_ABSOLUTE(iter_in))
+
+    ctx.bc.append(try_clean_up)
+    ctx.bc.append(POP_TOP(lineno=node.lineno))
+    ctx.bc.append(POP_TOP(lineno=node.lineno))
+    ctx.bc.append(POP_TOP(lineno=node.lineno))
+    ctx.bc.append(POP_EXCEPT(lineno=node.lineno))
+    ctx.bc.append(POP_TOP(lineno=node.lineno))
+    ctx.bc.append(POP_BLOCK(lineno=node.lineno))
+    ctx.pop_current_block(BlockType.LOOP, lineno=node.lineno)
+
+    ctx.bc.append(LOAD_CONST(None, lineno=node.lineno))
+    for each in node.orelse:
+        py_emit(each, ctx)
+    ctx.bc.append(end)
+    return
+
+
 @py_emit.case(ast.Break)
 def py_emit(node: ast.Break, ctx: Context):
     """
@@ -283,7 +384,7 @@ def py_emit(node: ast.Break, ctx: Context):
     >>>     s += x
     >>> self.assertEqual(s, 1 + 1 + 1 + 2 + 1 + 3)
     """
-    ctx.bc.append(Instr('BREAK_LOOP', lineno=node.lineno))
+    ctx.bc.append(BREAK_LOOP(lineno=node.lineno))
 
 
 @py_emit.case(ast.Continue)
@@ -395,7 +496,7 @@ def py_emit(node: ast.Continue, ctx: Context):
 @py_emit.case(ast.With)
 def py_emit(node: ast.With, ctx: Context):
     """
-    title: With
+    title: with
     prepare:
     >>> import os
     >>> import unittest
@@ -429,26 +530,26 @@ def py_emit(node: ast.With, ctx: Context):
         finally_label = Label()
         flabel_stack.append(finally_label)
         py_emit(each.context_expr, ctx)
-        ctx.bc.append(Instr("SETUP_WITH", finally_label, lineno=node.lineno))
+        ctx.bc.append(SETUP_WITH(finally_label, lineno=node.lineno))
         ctx.push_current_block(BlockType.FINALLY_TRY)
         if each.optional_vars:
             py_emit(each.optional_vars, ctx)
         else:
-            ctx.bc.append(Instr("POP_TOP", lineno=node.lineno))
+            ctx.bc.append(POP_TOP(lineno=node.lineno))
 
     for each in node.body:
         py_emit(each, ctx)
 
     while flabel_stack:
-        ctx.bc.append(Instr("POP_BLOCK", lineno=node.lineno))
+        ctx.bc.append(POP_BLOCK(lineno=node.lineno))
         ctx.pop_current_block(BlockType.FINALLY_TRY, node.lineno)
 
-        ctx.bc.append(Instr("LOAD_CONST", None, lineno=node.lineno))
+        ctx.bc.append(LOAD_CONST(None, lineno=node.lineno))
         finally_label = flabel_stack.pop(-1)
         ctx.push_current_block(BlockType.FINALLY_END, finally_label)
         ctx.bc.append(finally_label)
-        ctx.bc.append(Instr("WITH_CLEANUP_START", lineno=node.lineno))
-        ctx.bc.append(Instr("WITH_CLEANUP_FINISH", lineno=node.lineno))
-        ctx.bc.append(Instr("END_FINALLY", lineno=node.lineno))
+        ctx.bc.append(WITH_CLEANUP_START(lineno=node.lineno))
+        ctx.bc.append(WITH_CLEANUP_FINISH(lineno=node.lineno))
+        ctx.bc.append(END_FINALLY(lineno=node.lineno))
         ctx.pop_current_block(BlockType.FINALLY_END, node.lineno)
 
