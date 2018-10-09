@@ -1,20 +1,6 @@
-import unittest
 from yapypy.utils.easy_debug import yapypy_test_code
 
-
-class TestCase(unittest.TestCase):
-    def assertAllRaise(self, exception_type, regex, error_strings):
-        for str in error_strings:
-            with self.subTest(str=str):
-                with self.assertRaisesRegex(exception_type, regex):
-                    yapypy_test_code(str, True)
-
-    def test_compile_time_concat_errors(self):
-        self.assertAllRaise(SyntaxError,
-                            'cannot mix bytes and nonbytes literals',
-                            [r"""f'' b''""",
-                             r"""b'' f''""",
-                             ])
-
-runner = unittest.TextTestRunner()
-runner.run(unittest.makeSuite(TestCase, 'test_compile_time_concat_errors'))
+try:
+    yapypy_test_code(r"""f'' b''""", True)
+except SyntaxError as e:
+    assert e.msg = 'test_compile_time_concat_errors'
