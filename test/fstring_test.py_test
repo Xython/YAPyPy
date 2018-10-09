@@ -1,4 +1,5 @@
 import unittest
+from yapypy.utils.easy_debug import yapypy_test_code
 
 
 class TestCase(unittest.TestCase):
@@ -6,7 +7,7 @@ class TestCase(unittest.TestCase):
         for str in error_strings:
             with self.subTest(str=str):
                 with self.assertRaisesRegex(exception_type, regex):
-                    eval(str)
+                    yapypy_test_code(str, True)
 
     def test_compile_time_concat_errors(self):
         self.assertAllRaise(SyntaxError,
@@ -15,5 +16,5 @@ class TestCase(unittest.TestCase):
                              r"""b'' f''""",
                              ])
 
-if __name__ == '__main__':
-    unittest.main()
+runner = unittest.TextTestRunner()
+runner.run(unittest.makeSuite(TestCase, 'test_compile_time_concat_errors'))

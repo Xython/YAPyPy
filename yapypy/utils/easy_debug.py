@@ -24,12 +24,16 @@ def yapypy_test(file_name: str, should_exec=False, ctx=None):
     if code is None:
         return
 
+    yapypy_test_code(code, should_exec, ctx)
+    return True
+
+
+def yapypy_test_code(code: str, should_exec=False, ctx=None):
     res = to_tagged_ast(parse(code).result)
     c = py_compile(res)
     if should_exec:
         exec(c, ctx or {})
 
-    return True
 
 def yapypy_debug(code: str, should_exec=False, ctx=None):
     res = to_tagged_ast(parse(code).result)
