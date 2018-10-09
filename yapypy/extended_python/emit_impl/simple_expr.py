@@ -3,6 +3,11 @@ from yapypy.extended_python.pybc_emit import *
 
 @py_emit.case(ast.Num)
 def py_emit(node: ast.Num, ctx: Context):
+    """
+    title: number
+    test:
+    >>> assert 100 == 100
+    """
     ctx.bc.append(Instr("LOAD_CONST", node.n, lineno=node.lineno))
 
 
@@ -32,9 +37,9 @@ def py_emit(node: ast.Set, ctx: Context):
     for starred in starreds:
         py_emit(starred.value, ctx)
 
+    # BUILD_SET_UNPACK merge iterable to a tuple.
     ctx.bc.append(
-        Instr(
-            "BUILD_SET_UNPACK",
+        BUILD_SET_UNPACK(
             len(starreds) + 1,
             lineno=node.lineno,
         ),
@@ -43,11 +48,28 @@ def py_emit(node: ast.Set, ctx: Context):
 
 @py_emit.case(ast.Str)
 def py_emit(node: ast.Str, ctx: Context):
+    """
+    title: string
+    test:
+    >>> assert 'string' == "string"
+    """
     ctx.bc.append(LOAD_CONST(node.s, lineno=node.lineno))
 
 
 @py_emit.case(ast.JoinedStr)
 def py_emit(node: ast.JoinedStr, ctx: Context):
+    """
+    title: joined str
+    prepare:
+    >>> from yapypy.utils.easy_debug import yapypy_test
+    >>> a = 100
+    test:
+    >>> assert f'{a * a} 100' == '10000 100'
+    >>> a= (lambda x: x * 2)
+    >>> assert f'{a(111)!s} 100' == '222 100'
+    >>> yapypy_test('fstring_test', True)
+    """
+
     kinds = {type(each) for each in node.values}
     if ast.Bytes in kinds:
         if len(kinds) > 1:
