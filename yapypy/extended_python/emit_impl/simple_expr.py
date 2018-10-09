@@ -3,6 +3,11 @@ from yapypy.extended_python.pybc_emit import *
 
 @py_emit.case(ast.Num)
 def py_emit(node: ast.Num, ctx: Context):
+    """
+    title: number
+    test:
+    >>> assert 100 == 100
+    """
     ctx.bc.append(Instr("LOAD_CONST", node.n, lineno=node.lineno))
 
 
@@ -32,9 +37,9 @@ def py_emit(node: ast.Set, ctx: Context):
     for starred in starreds:
         py_emit(starred.value, ctx)
 
+    # BUILD_SET_UNPACK merge iterable to a tuple.
     ctx.bc.append(
-        Instr(
-            "BUILD_SET_UNPACK",
+        BUILD_SET_UNPACK(
             len(starreds) + 1,
             lineno=node.lineno,
         ),
@@ -43,11 +48,28 @@ def py_emit(node: ast.Set, ctx: Context):
 
 @py_emit.case(ast.Str)
 def py_emit(node: ast.Str, ctx: Context):
+    """
+    title: string
+    test:
+    >>> assert 'string' == "string"
+    """
     ctx.bc.append(LOAD_CONST(node.s, lineno=node.lineno))
 
 
 @py_emit.case(ast.JoinedStr)
 def py_emit(node: ast.JoinedStr, ctx: Context):
+    """
+    title: joined str
+    prepare:
+    >>> from yapypy.utils.easy_debug import yapypy_test
+    >>> a = 100
+    test:
+    >>> assert f'{a * a} 100' == '10000 100'
+    >>> a= (lambda x: x * 2)
+    >>> assert f'{a(111)!s} 100' == '222 100'
+    >>> assert yapypy_test('fstring_test', True)
+    """
+
     kinds = {type(each) for each in node.values}
     if ast.Bytes in kinds:
         if len(kinds) > 1:
@@ -96,9 +118,13 @@ def py_emit(node: ast.Slice, ctx: Context):
     >>> x = S()
     >>> assert x[1, 2:3] == 1
     >>> assert x[:3:2, 2] == 2
+    >>> assert [1, 2, 3] == [1, 2, 3][:][:]
+    >>> assert [1, 2] == [1, 2, 3][0:2]
     """
     slices = [node.lower, node.upper, node.step]
-    if not any(slices):
+    is_empty_slice = not any(slices)
+
+    if is_empty_slice:
         ctx.bc.append(LOAD_CONST(None))
         ctx.bc.append(LOAD_CONST(None))
         ctx.bc.append(BUILD_SLICE(2))
@@ -108,6 +134,7 @@ def py_emit(node: ast.Slice, ctx: Context):
         n = 3
     else:
         n = 2
+
     for each in slices[:n]:
         if not each:
             ctx.bc.append(LOAD_CONST(None))
@@ -118,9 +145,21 @@ def py_emit(node: ast.Slice, ctx: Context):
 
 @py_emit.case(ast.Bytes)
 def py_emit(node: ast.Bytes, ctx: Context):
+    """
+    title: bytes
+    test:
+    >>> x = b'1111'
+    """
     ctx.bc.append(LOAD_CONST(node.s, lineno=node.lineno))
 
 
 @py_emit.case(ast.Ellipsis)
 def py_emit(node: ast.Ellipsis, ctx: Context):
+    """
+    title: ellipsis
+    prepare:
+    >>> from builtins import Ellipsis
+    test:
+    >>> assert ... is Ellipsis
+    """
     ctx.bc.append(LOAD_CONST(..., lineno=node.lineno))

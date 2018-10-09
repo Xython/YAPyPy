@@ -14,5 +14,5 @@ install:
 script:
   - tox
 after_success:
-  - codecov --token=822f86c3-65e2-40dd-b532-ee39861188d4
+  - codecov
   - coveralls

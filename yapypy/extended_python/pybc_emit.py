@@ -140,7 +140,7 @@ class Context(INamedList, metaclass=trait(as_namedlist)):
         self.current_block_stack.append(item)
 
     def pop_current_block(self, blktype: BlockType = None, lineno=None):
-        if blktype is None:
+        if blktype is not None:
             _blktype, _ = self.current_block_stack[-1]
             if _blktype != blktype:
                 exc = SystemError()
