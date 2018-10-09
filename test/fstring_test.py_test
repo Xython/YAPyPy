@@ -1,0 +1,6 @@
+from yapypy.utils.easy_debug import yapypy_test_code
+
+try:
+    yapypy_test_code(r"""f'' b''""", True)
+except SyntaxError as e:
+    assert e.msg = 'test_compile_time_concat_errors'
