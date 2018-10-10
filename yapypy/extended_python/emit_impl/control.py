@@ -451,4 +451,3 @@ def py_emit(node: ast.With, ctx: Context):
         ctx.bc.append(Instr("WITH_CLEANUP_FINISH", lineno=node.lineno))
         ctx.bc.append(Instr("END_FINALLY", lineno=node.lineno))
         ctx.pop_current_block(BlockType.FINALLY_END, node.lineno)
-

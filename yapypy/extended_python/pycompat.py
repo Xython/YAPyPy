@@ -89,4 +89,4 @@ def get_yapypy_module_spec_from_path(names, module_path):
         return spec
 
 
-sys.meta_path.insert(0, YAPyPyFinder)
+sys.meta_path.insert(0, YAPyPyFinder())

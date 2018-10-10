@@ -1,4 +1,4 @@
-# YAPyPy ![](https://travis-ci.org/Xython/YAPyPy.svg?branch=master) [![codecov](https://codecov.io/gh/Xython/YAPyPy/branch/master/graph/badge.svg)](https://codecov.io/gh/Xython/YAPyPy)
+# YAPyPy ![](https://travis-ci.org/Xython/YAPyPy.svg?branch=master) [![codecov](https://codecov.io/gh/Xython/YAPyPy/branch/master/graph/badge.svg)](https://codecov.io/gh/Xython/YAPyPy)  [![Coverage Status](https://coveralls.io/repos/github/Xython/YAPyPy/badge.svg?branch=master)](https://coveralls.io/github/Xython/YAPyPy?branch=master)
 
 Yet Another Python Python(YAPyPy), which is extended from and compatible to the original CPython.
 
