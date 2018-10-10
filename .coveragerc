@@ -10,9 +10,10 @@ exclude_lines =
     if __name__ == .__main__.:
     if sys.version_info >= (3, 7):
     if sys.version_info < (3, 7):
-ignore_errors = True
+ignore_errors = False
 omit =
     tests/*
     auto_test.py
     yapypy/utils/*
     yapypy/cmd/*
+    yapypy/extended_python/pycompat.py

@@ -70,7 +70,6 @@ class FixLineno(ast.NodeVisitor):
 
 
 class Test(unittest.TestCase):
-    @pytest.fixture(autouse=True)
     def test_all(self):
         for each in filter(lambda p: p[-1].endswith('.py'), yapypy.collect()):
             filename = each.__str__()
