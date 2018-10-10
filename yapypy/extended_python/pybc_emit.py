@@ -145,7 +145,8 @@ class Context(INamedList, metaclass=trait(as_namedlist)):
             if _blktype != blktype:
                 exc = SystemError()
                 exc.lineno = lineno
-                exc.msg = "pop block type is not expect, want %s but get %s" % (blktype, _blktype)
+                exc.msg = "pop block type is not expect, want %s but get %s" % (blktype,
+                                                                                _blktype)
                 raise exc
         return self.current_block_stack.pop()
 

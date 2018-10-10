@@ -40,7 +40,7 @@ class Loc:
         return {
             'lineno': other.lineno,
             'col_offset':
-                other.col_offset if hasattr(other, 'col_offset') else other.colno
+            other.col_offset if hasattr(other, 'col_offset') else other.colno
         }
 
 
@@ -128,7 +128,7 @@ def comp_op_rewrite(op: t.Union[Tokenizer, t.List[Tokenizer]]):
         '<>': lambda: raise_exp(NotImplemented),
         '!=': ast.NotEq,
         'in': ast.In,
-        ('is',): ast.Is,
+        ('is', ): ast.Is,
         ('is', 'not'): ast.IsNot,
         ('not', 'in'): ast.NotIn,
     }[op]()
