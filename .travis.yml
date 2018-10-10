@@ -1,11 +1,13 @@
-sudo: false
 language: python
-
+sudo: false
+cache: pip
 matrix:
   include:
   - python: 3.6
     env: TOXENV=py36
-  - python: 3.7-dev
+  - python: 3.7
+    dist: xenial
+    sudo: required
     env: TOXENV=py37
 
 install:
@@ -14,5 +16,5 @@ install:
 script:
   - tox
 after_success:
-  - codecov --token=822f86c3-65e2-40dd-b532-ee39861188d4
+  - codecov
   - coveralls
