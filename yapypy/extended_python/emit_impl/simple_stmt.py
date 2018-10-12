@@ -154,11 +154,15 @@ def py_emit(node: ast.AnnAssign, ctx: Context):
 
     >>> s : dict = dict()
     >>> assert s is not None
+    >>> i : int
     """
 
     byte_code: list = ctx.bc
     target = node.target
     value = node.value
+
+    if value is None:
+        return
 
     # load value
     py_emit(value, ctx)
