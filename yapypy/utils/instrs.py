@@ -109,6 +109,10 @@ def BUILD_TUPLE_UNPACK(n: int, *, lineno=None):
     return Instr('BUILD_TUPLE_UNPACK', n, lineno=lineno)
 
 
+def BUILD_TUPLE_UNPACK_WITH_CALL(n: int, *, lineno=None):
+    return Instr('BUILD_TUPLE_UNPACK_WITH_CALL', n, lineno=lineno)
+
+
 def BUILD_LIST(n: int, *, lineno=None):
     return Instr('BUILD_LIST', n, lineno=lineno)
 
@@ -183,6 +187,22 @@ def JUMP_IF_FALSE_OR_POP(label: Label, *, lineno=None):
 
 def SETUP_LOOP(label: Label, *, lineno=None):
     return Instr("SETUP_LOOP", label, lineno=lineno)
+
+
+def BREAK_LOOP(*, lineno=None):
+    return Instr("BREAK_LOOP", lineno=lineno)
+
+
+def WITH_CLEANUP_START(*, lineno=None):
+    return Instr("WITH_CLEANUP_START", lineno=lineno)
+
+
+def SETUP_WITH(label: Label, *, lineno=None):
+    return Instr("SETUP_WITH", label, lineno=lineno)
+
+
+def WITH_CLEANUP_FINISH(*, lineno=None):
+    return Instr("WITH_CLEANUP_FINISH", lineno=lineno)
 
 
 def CONTINUE_LOOP(label: Label, *, lineno=None):
