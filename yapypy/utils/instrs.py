@@ -125,6 +125,10 @@ def BUILD_SET(n: int, *, lineno=None):
     return Instr('BUILD_SET', n, lineno=lineno)
 
 
+def BUILD_SET_UNPACK(n: int, *, lineno=None):
+    return Instr('BUILD_SET_UNPACK', n, lineno=lineno)
+
+
 def BUILD_SLICE(n: int, *, lineno=None):
     return Instr('BUILD_SLICE', n, lineno=lineno)
 
