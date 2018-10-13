@@ -40,6 +40,7 @@ class Context(INamedList, metaclass=trait(as_namedlist)):
     parent: 'Context'
     current_block_stack: list
     cts: typing.FrozenSet[ContextType]
+    is_global: bool
 
     def enter_new(self, tag_table: SymTable):
         sym_tb = IndexedAnalyzedSymTable.from_raw(tag_table)
@@ -77,12 +78,14 @@ class Context(INamedList, metaclass=trait(as_namedlist)):
             bc.freevars.extend(sym_tb.freevars + sym_tb.borrowed_cellvars)
 
         bc.cellvars.extend(sym_tb.cellvars)
+
         return Context(
             parent=self,
             bc=bc,
             sym_tb=sym_tb,
             current_block_stack=[],
             cts=frozenset(cts),
+            is_global=tag_table.is_global(),
         )
 
     def load_name(self, name, lineno=None):

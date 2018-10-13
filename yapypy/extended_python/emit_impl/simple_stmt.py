@@ -154,14 +154,50 @@ def py_emit(node: ast.AnnAssign, ctx: Context):
 
     >>> s : dict = dict()
     >>> assert s is not None
-    >>> i : int
+    >>> i: int
+    >>> assert 'i' not in locals()
+    >>> assert 'i' in locals().get('__annotations__')
+    >>> def fun():
+    >>>     c : int
+    >>>     assert 'c' not in locals()
+    >>>     assert locals().get('__annotations__') is None
+    >>> fun()
+    >>> class B:
+    >>>     d : int
+    >>>     assert 'd' not in locals()
+    >>>     assert 'd' in locals().get('__annotations__')
+    >>> B()
     """
+
+    def save_annotation(code, name):
+        if sys.version_info < (3, 7):
+            code.append(STORE_ANNOTATION(name.id, lineno=name.lineno))
+        else:
+            code.extend([
+                Instr('LOAD_NAME', '__annotations__'),
+                LOAD_CONST(name.id),
+                STORE_SUBSCR()
+            ])
 
     byte_code: list = ctx.bc
     target = node.target
     value = node.value
+    cts = ctx.cts
 
-    if value is None:
+    value_is_none = value is None
+    class_or_module = {ContextType.ClassDef, ContextType.Module}
+    should_save_annotation = False
+    target_type = type(target)
+
+    if cts is not None:
+        under_class_of_module = bool(class_or_module & cts)
+        is_global_context = ctx.is_global
+        should_save_annotation = under_class_of_module or is_global_context
+
+    if value_is_none:
+        if should_save_annotation:
+            py_emit(node.annotation, ctx)
+            save_annotation(byte_code, target)
         return
 
     # load value
@@ -171,16 +207,7 @@ def py_emit(node: ast.AnnAssign, ctx: Context):
     # load annotation
     py_emit(node.annotation, ctx)
 
-    target_type = type(target)
-
     if target_type is ast.Name:
-        if sys.version_info < (3, 7):
-            byte_code.append(STORE_ANNOTATION(target.id, lineno=target.lineno))
-        else:
-            byte_code.extend([
-                Instr('LOAD_NAME', '__annotations__'),
-                LOAD_CONST(target.id),
-                STORE_SUBSCR()
-            ])
+        save_annotation(byte_code, target)
     else:
         byte_code.append(POP_TOP(lineno=target.lineno))
