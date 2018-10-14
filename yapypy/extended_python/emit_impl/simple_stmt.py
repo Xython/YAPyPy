@@ -186,16 +186,14 @@ def py_emit(node: ast.AnnAssign, ctx: Context):
 
     value_is_none = value is None
     class_or_module = {ContextType.ClassDef, ContextType.Module}
-    should_save_annotation = False
+    under_class_of_module = False
     target_type = type(target)
 
     if cts is not None:
         under_class_of_module = bool(class_or_module & cts)
-        is_global_context = ctx.is_global
-        should_save_annotation = under_class_of_module or is_global_context
 
     if value_is_none:
-        if should_save_annotation:
+        if under_class_of_module:
             py_emit(node.annotation, ctx)
             save_annotation(byte_code, target)
         return
