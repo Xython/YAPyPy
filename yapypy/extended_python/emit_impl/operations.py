@@ -1,4 +1,5 @@
 from yapypy.extended_python.pybc_emit import *
+from yapypy.extended_python.extended_ast import *
 
 
 @py_emit.case(ast.UnaryOp)
@@ -16,8 +17,8 @@ def py_emit(node: ast.UnaryOp, ctx: Context):
         raise TypeError
 
 
-@py_emit.case(ast.UnaryOpC)
-def py_emit(node: ast.UnaryOpC, ctx: Context):
+@py_emit.case(UnaryOpC)
+def py_emit(node: UnaryOpC, ctx: Context):
     py_emit(node.operand, ctx)
     inst = {
         ast.Not: "UNARY_NOT",

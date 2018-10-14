@@ -197,13 +197,6 @@ class UnaryOp(AST):
     col_offset: typing.Union[int]
 
 
-class UnaryOpC(AST):
-    operand: typing.Union[Name, Num, BoolOp, Subscript, Call, Attribute]
-    lineno: typing.Union[int]
-    op: typing.Union[USub, Not]
-    col_offset: typing.Union[int]
-
-
 class BoolOp(AST):
     values: typing.List[typing.Union[
         typing.Union[Name, Str, Tuple, Compare, IfExp, List, BoolOp, UnaryOp,

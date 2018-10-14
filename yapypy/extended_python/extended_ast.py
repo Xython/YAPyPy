@@ -31,3 +31,11 @@ class ConstantMapping(ast.Constant):
         self.value = value
         self.lineno = lineno
         self.col_offset = col_offset
+
+
+class UnaryOpC(ast.AST):
+    def __init__(self, op, operand, lineno=None, col_offset=None):
+        self.op = op
+        self.operand = operand
+        self.lineno = lineno
+        self.col_offset = col_offset
