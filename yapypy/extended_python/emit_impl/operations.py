@@ -16,6 +16,21 @@ def py_emit(node: ast.UnaryOp, ctx: Context):
         raise TypeError
 
 
+@py_emit.case(ast.UnaryOpC)
+def py_emit(node: ast.UnaryOpC, ctx: Context):
+    py_emit(node.operand, ctx)
+    inst = {
+        ast.Not: "UNARY_NOT",
+        ast.USub: "UNARY_NEGATIVE",
+        ast.UAdd: "UNARY_POSITIVE",
+        ast.Invert: "UNARY_INVERT"
+    }.get(type(node.op))
+    if inst:
+        ctx.bc.append(Instr(inst, lineno=node.lineno))
+    else:
+        raise TypeError
+
+
 @py_emit.case(ast.BinOp)
 def py_emit(node: ast.BinOp, ctx: Context):
     py_emit(node.left, ctx)

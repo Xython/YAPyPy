@@ -87,7 +87,7 @@ if_stmt        ::=  marks<<'if' tests<<test ':'                                 
                         bodies<<suite                                                                         # ------------------------------
                     (marks<<'elif' tests<<test ':' bodies<<suite)*                                            # ------------------------------
                     ['else' ':' orelse=suite]                                                                 -> if_stmt_rewrite(marks, tests, bodies, orelse)
-while_stmt     ::= 'while' test=test ':' body=suite ['else' ':' orelse=suite]                                  -> while_stmt_rewrite(test, body, orelse)
+while_stmt     ::= 'while' test=test ':' body=suite ['else' ':' orelse=suite]                                 -> while_stmt_rewrite(test, body, orelse)
 async_for_stmt ::= 'async' 'for' target=exprlist 'in' iter=testlist ':' body=suite ['else' ':' orelse=suite]  -> for_stmt_rewrite(target, iter, body, orelse, is_async=True)
 for_stmt       ::= 'for' target=exprlist 'in' iter=testlist ':' body=suite ['else' ':' orelse=suite]          -> for_stmt_rewrite(target, iter, body, orelse)
 try_stmt       ::= (mark='try' ':'                                                                            # ---------------------------
@@ -110,7 +110,7 @@ lambdef_nocond ::= m='lambda' args=lam_args ':' body=test_nocond        -> Lambd
 
 or_test        ::= head=and_test ('or' tail<<and_test)*                 -> BoolOp(Or(), [head, *tail])  if tail else head
 and_test       ::= head=not_test ('and' tail<<not_test)*                -> BoolOp(And(), [head, *tail]) if tail else head
-not_test       ::= mark='not' expr=not_test | comp=comparison           -> UnaryOp(Not(), expr, **loc @ mark) if mark else comp
+not_test       ::= mark='not' expr=not_test | comp=comparison           -> UnaryOpC(Not(), expr, **loc @ mark) if mark else comp
 
 comparison     ::= left=expr (ops<<comp_op comparators<<expr)*          -> Compare(left, ops, comparators) if ops else left
 
@@ -138,11 +138,11 @@ term           ::= head=factor tail=term_tr*                            -> term_
 
 factor         ::= mark=('+'|'-'|'~') factor=factor | power=power       -> factor_rewrite(mark, factor, power)
 
-power          ::= atom_expr=atom_expr ['**' factor=factor]             -> BinOp(atom_expr, Pow(), factor) if factor else  atom_expr
+power          ::= atom_expr=atom_expr ['**' factor=factor]             -> BinOp(atom_expr, Pow(), factor) if factor else atom_expr
 atom_expr      ::= [a='await'] atom=atom trailers=trailer*              -> atom_expr_rewrite(a, atom, trailers)
 
 atom           ::= (is_gen ='(' [yield_expr=yield_expr|comp=testlist_comp] ')' |
-                    is_list='[' [comp=testlist_comp]            ']' |
+                    is_list='[' [comp=testlist_comp] ']' |
                        head='{' [dict=dictorsetmaker] is_dict='}' |
                        name=NAME |
                        number=NUMBER |
@@ -175,7 +175,7 @@ trailer        ::=  arglist=arglist | mark='[' subscr=subscriptlist ']' | mark='
 # `Index` will be deprecated in Python3.8.
 # See https://github.com/python/cpython/pull/9605#issuecomment-425381990
 subscriptlist  ::= head=subscript (',' tail << subscript)* [',']
-                   ->  Index(head if not tail else Tuple([head, *tail], Load()))
+                   -> Index(head if not tail else Tuple([head, *tail], Load()))
 subscript3     ::= [lower=test] subscr=[':' [upper=test] [':' [step=test]]] -> Slice(lower, upper, step) if subscr else lower
 subscript      ::= it=(subscript3 | test) -> it
 exprlist       ::= seq << (expr|star_expr) (',' seq << (expr|star_expr))* [force_tuple=','] -> Tuple(seq, Load()) if force_tuple or len(seq) > 1 else seq[0]
@@ -194,17 +194,15 @@ classdef ::= mark='class' name=NAME [arglist=arglist]':' suite=suite
 
 arglist   ::= mark='(' [seq<<argument (',' seq<<argument)*  [',']] ')' -> check_call_args(loc @ mark, seq or [])
 
-argument  ::= (
-               key=NAME '=' value=test |
+argument  ::= (key=NAME '=' value=test |
                arg=test [comp=comp_for] |
                mark='**' kwargs=test |
                mark='*'  args=test )
-               ->
-                 Starred(**(loc @ mark), value=args, ctx=Load())    if args else  \
-                 keyword(**(loc @ mark), arg=None, value=kwargs)    if kwargs else\
-                 keyword(**(loc @ key), arg=key.value, value=value) if key else   \
-                 GeneratorExp(arg, comp)                            if comp else  \
-                 arg
+               -> Starred(**(loc @ mark), value=args, ctx=Load())    if args else  \
+                  keyword(**(loc @ mark), arg=None, value=kwargs)    if kwargs else\
+                  keyword(**(loc @ key), arg=key.value, value=value) if key else   \
+                  GeneratorExp(arg, comp)                            if comp else  \
+                  arg
 
 comp_for_item ::= [is_async='async'] 'for' target=exprlist 'in' iter=or_test ('if' ifs<<test_nocond)*
                   -> comprehension(as_store(target), iter, ifs, bool(is_async))
