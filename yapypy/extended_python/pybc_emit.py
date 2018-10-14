@@ -77,6 +77,7 @@ class Context(INamedList, metaclass=trait(as_namedlist)):
             bc.freevars.extend(sym_tb.freevars + sym_tb.borrowed_cellvars)
 
         bc.cellvars.extend(sym_tb.cellvars)
+
         return Context(
             parent=self,
             bc=bc,
@@ -156,6 +157,10 @@ class Context(INamedList, metaclass=trait(as_namedlist)):
 
     def get_block_stack(self):
         return self.current_block_stack
+
+    @property
+    def is_global(self):
+        return ContextType.Module in self.cts
 
 
 @Pattern
