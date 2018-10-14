@@ -186,11 +186,8 @@ def py_emit(node: ast.AnnAssign, ctx: Context):
 
     value_is_none = value is None
     class_or_module = {ContextType.ClassDef, ContextType.Module}
-    under_class_of_module = False
+    under_class_of_module = bool(class_or_module & cts)
     target_type = type(target)
-
-    if cts is not None:
-        under_class_of_module = bool(class_or_module & cts)
 
     if value_is_none:
         if under_class_of_module:
