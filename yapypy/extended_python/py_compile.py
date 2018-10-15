@@ -9,8 +9,9 @@ def py_compile(node, filename='<unknown>', is_entrypoint=False):
     if isinstance(node, Tag):
         ctx = _non_ctx.enter_new(node.tag)
         ctx.bc.filename = filename
+
         ctx.bc.name = '__main__' if is_entrypoint else splitext(
-            Path(filename).relative())[1]
+            Path(filename).relative())[0]
 
         ctx.bc.append(LOAD_GLOBAL('type'))
         ctx.bc.append(STORE_GLOBAL('.yapypy.type'))

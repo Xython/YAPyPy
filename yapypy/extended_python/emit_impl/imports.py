@@ -35,12 +35,12 @@ def py_emit(node: ast.ImportFrom, ctx: Context):
     title: import from
     test:
      >>> from os.path import join
-     >>> from os import path as path
+     >>> from os import path as _path
      >>> from os import *
      >>> from os.path import *
      >>> def f(x):
      >>>     x
-     >>>
+     >>> print(_path)
      >>> print(join('a', 'b'))
      >>> print(f(1))
      >>> x, y = 1, 2
@@ -59,6 +59,6 @@ def py_emit(node: ast.ImportFrom, ctx: Context):
     else:
         for name in node.names:
             ctx.bc.append(Instr("IMPORT_FROM", name.name, lineno=lineno))
-            as_name = name.name or name.asname
+            as_name = name.asname or name.name
             ctx.store_name(as_name, lineno=lineno)
         ctx.bc.append(POP_TOP(lineno=lineno))

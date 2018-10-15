@@ -57,6 +57,8 @@ class Context(INamedList, metaclass=trait(as_namedlist)):
         if has_annotation and under_class_def_or_module:
             bc.append(SETUP_ANNOTATIONS())
 
+        bc.flags |= CompilerFlags.NEWLOCALS
+
         if ContextType.Coroutine in cts:
             if ContextType.Generator in cts:
                 bc.flags |= CompilerFlags.ASYNC_GENERATOR
@@ -67,14 +69,13 @@ class Context(INamedList, metaclass=trait(as_namedlist)):
 
         # not elif for further designing(async lambda)
 
-        bc.flags |= CompilerFlags.NEWLOCALS
         if tag_table.depth > 1:
             bc.flags |= CompilerFlags.NESTED
 
-        if not sym_tb.freevars and not sym_tb.borrowed_cellvars:
-            bc.flags |= CompilerFlags.NOFREE
+        if sym_tb.freevars:
+            bc.freevars.extend(sym_tb.freevars)
         else:
-            bc.freevars.extend(sym_tb.freevars + sym_tb.borrowed_cellvars)
+            bc.flags |= CompilerFlags.NOFREE
 
         bc.cellvars.extend(sym_tb.cellvars)
 
@@ -121,18 +122,15 @@ class Context(INamedList, metaclass=trait(as_namedlist)):
 
     def load_closure(self, lineno=None):
         parent = self.parent
-        freevars = self.sym_tb.freevars
-
-        if freevars is None:
-            return
-
-        for each in self.sym_tb.freevars:
-            if each in parent.sym_tb.cellvars:
+        sym_tb = parent.sym_tb
+        freevars = sym_tb.freevars
+        borrowed_cellvars = sym_tb.borrowed_cellvars
+        for each in freevars:
+            if each in borrowed_cellvars:
                 parent.bc.append(Instr('LOAD_CLOSURE', CellVar(each), lineno=lineno))
-            elif each in parent.sym_tb.borrowed_cellvars:
-                parent.bc.append(Instr('LOAD_CLOSURE', FreeVar(each), lineno=lineno))
             else:
-                raise RuntimeError
+                assert each in freevars
+                parent.bc.append(Instr('LOAD_CLOSURE', FreeVar(each), lineno=lineno))
 
         parent.bc.append(Instr('BUILD_TUPLE', len(freevars)))
 

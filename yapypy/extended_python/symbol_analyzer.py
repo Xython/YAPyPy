@@ -121,7 +121,7 @@ class SymTable(INamedList, metaclass=trait(as_namedlist)):
 
         def fetched_from_outside(sym_tb: SymTable):
             return sym_tb.analyzed.freevars.union(
-                analyzed.borrowed_cellvars,
+                sym_tb.analyzed.borrowed_cellvars,
                 *(fetched_from_outside(each.analyze()) for each in sym_tb.children),
             )
 
@@ -135,6 +135,7 @@ class SymTable(INamedList, metaclass=trait(as_namedlist)):
         cellvars.update(requires_from_sub_contexts.intersection(bounds))
         borrowed_cellvars.update(requires_from_sub_contexts - cellvars)
         bounds.difference_update(cellvars)
+        analyzed.freevars.update(borrowed_cellvars)
         return cellvars
 
     def is_global(self):
@@ -375,14 +376,13 @@ if __name__ == '__main__':
 
     mod = ("""
 def f():
-    x = 1
-    def g(y):
-        t + y
-        def z():
-            # add some borrowed cellvars to g 
-            x + d
-    d = 2
-    """)
+    arg = 0
+    
+    def g():
+        return [arg + 1 for _ in range(20)]
+    
+    return g
+""")
     print(mod)
     mod = ast.parse(mod)
 

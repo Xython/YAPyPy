@@ -249,6 +249,8 @@ def py_emit(node: ast.ClassDef, ctx: Context):
 
     parent_ctx.bc.append(MAKE_FUNCTION(make_function_flags, lineno=lineno))
 
+
+
     # *args
     if node.bases:
         vararg = ast.Tuple(node.bases, ast.Load(), lineno=lineno, col_offset=col_offset)
@@ -271,6 +273,7 @@ def py_emit(node: ast.ClassDef, ctx: Context):
         parent_ctx.bc.append(BUILD_MAP(0))
 
     parent_ctx.bc.append(CALL_FUNCTION_EX(1))
+
 
     parent_ctx.bc.extend(
         [CALL_FUNCTION(1, lineno=lineno)] * len(getattr(node, 'decorator_list', ())))

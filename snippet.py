@@ -76,7 +76,7 @@ def dis_code(code: types.CodeType, f):
 
 def case(code, ctx, debug=False):
     stmt = parse(code).result
-    code_obj = py_compile(stmt, is_entrypoint=True)
+    code_obj = py_compile(stmt, is_entrypoint=False)
 
     if debug:
         code_obj2 = compile(code, "", "exec")
@@ -101,23 +101,13 @@ def case(code, ctx, debug=False):
 
 case(
     """
-class S:
-    pass
-print(S)
-
-
-class T(type):
+def f():
+    arg = 0
+    def g():
+        return [arg for _ in range(20)]
+    return g
     
-    def __new__(mcs, name, bases, ns):
-        print(mcs, name, bases, ns)
-        return type(name, bases, ns)
-
-class S(list, metaclass=T):
-    def get2(self):
-        return self[2]
-
-s = S([1, 2, 3])
-print(s.get2())
+print(f()())
     """,
     ctx,
     debug=True)
