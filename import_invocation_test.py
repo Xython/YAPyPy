@@ -1,4 +1,4 @@
 import yapypy.extended_python.pycompat as pycompat
 pycompat.is_debug = True
-import platform
+import out_test
 

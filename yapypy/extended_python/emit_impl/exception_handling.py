@@ -105,6 +105,7 @@ def py_emit(node: ast.Try, ctx: Context):
     >>> except TypeError as e:
     >>>     a = 'type'
     >>> assert a == 'type'
+    >>> print('exc handling done')
     """
     lineno = node.lineno
     bodys = node.body
@@ -130,7 +131,7 @@ def py_emit(node: ast.Try, ctx: Context):
     byte_codes.append(POP_BLOCK())
     byte_codes.append(JUMP_FORWARD(try_forward))
     byte_codes.append(setup_forward)
-    labels = [Label()] * (len(handlers) - 1)
+    labels = [endfinally_forward, *(Label() for i in range(len(handlers) - 1))]
 
     for (idx, handler) in enumerate(handlers):
         h_lineno = handler.lineno
@@ -139,18 +140,13 @@ def py_emit(node: ast.Try, ctx: Context):
         h_bodys = handler.body
 
         if typ is not None:
-            if idx > 0:
-                dur_top = labels.pop()
-                byte_codes.append(dur_top)
             byte_codes.append(DUP_TOP())
             py_emit(typ, ctx)
             byte_codes.append(COMPARE_OP(Compare.EXC_MATCH, lineno=h_lineno))
-            if labels:
-                byte_codes.append(POP_JUMP_IF_FALSE(labels[-1]))
-            else:
-                byte_codes.append(POP_JUMP_IF_FALSE(endfinally_forward))
+            byte_codes.append(POP_JUMP_IF_FALSE(labels[-1]))
 
         byte_codes.append(POP_TOP(lineno=h_lineno))
+
         if name is not None:
             name_forward = Label()
             ctx.store_name(name)
@@ -162,7 +158,7 @@ def py_emit(node: ast.Try, ctx: Context):
 
         for hbody in h_bodys:
             py_emit(hbody, ctx)
-        # byte_codes.append( POP_EXCEPT( ) )
+
         if name is not None:
             byte_codes.append(POP_BLOCK())
             byte_codes.append(LOAD_CONST(None))
@@ -174,8 +170,8 @@ def py_emit(node: ast.Try, ctx: Context):
 
         byte_codes.append(POP_EXCEPT())
         byte_codes.append(JUMP_FORWARD(except_forward))
+        byte_codes.append(labels.pop())
 
-    byte_codes.append(endfinally_forward)
     byte_codes.append(END_FINALLY())
     byte_codes.append(try_forward)
 
