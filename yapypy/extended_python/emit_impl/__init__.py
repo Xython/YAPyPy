@@ -1,5 +1,5 @@
 """
-the separation of Python asts fundamentally follows the design of Python ASDL
+the organization of Python asts fundamentally follows the design of Python ASDL
 
 __init__.py:
     mod = Module(stmt* body)

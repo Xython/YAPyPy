@@ -170,6 +170,8 @@ def py_emit(node: ast.Call, ctx: Context):
             ),
         )
     else:
+        print(node)
+        print(node.args)
         ctx.bc.append(
             Instr(
                 'CALL_FUNCTION',
