@@ -34,11 +34,11 @@ class ConstantMapping(ast.Constant):
 
 
 class UnaryOpC(ast.Expr):
-    _fields = ('keys', 'values', 'ctx')
-
     def __init__(self, op, operand, lineno=None, col_offset=None):
         super().__init__()
         self.op = op
         self.operand = operand
         self.lineno = lineno
         self.col_offset = col_offset
+
+    _fields = ('op', 'operand')
