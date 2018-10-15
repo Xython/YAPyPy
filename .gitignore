@@ -106,3 +106,4 @@ venv.bak/
 .mypy_cache/
 .DS_Store
 test_*.py
+test/ignore_folder
