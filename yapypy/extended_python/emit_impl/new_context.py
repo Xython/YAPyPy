@@ -274,7 +274,6 @@ def py_emit(node: ast.ClassDef, ctx: Context):
 
     parent_ctx.bc.append(CALL_FUNCTION_EX(1))
 
-
     parent_ctx.bc.extend(
         [CALL_FUNCTION(1, lineno=lineno)] * len(getattr(node, 'decorator_list', ())))
 

@@ -27,7 +27,6 @@ class IndexedAnalyzedSymTable(NamedTuple):
     bounds: list
     freevars: list
     cellvars: list
-    borrowed_cellvars: list
 
     @classmethod
     def from_raw(cls, tb):
@@ -122,16 +121,14 @@ class Context(INamedList, metaclass=trait(as_namedlist)):
 
     def load_closure(self, lineno=None):
         parent = self.parent
-        sym_tb = parent.sym_tb
-        freevars = sym_tb.freevars
-        borrowed_cellvars = sym_tb.borrowed_cellvars
+        freevars = self.sym_tb.freevars
+        cellvars = parent.sym_tb.cellvars
         for each in freevars:
-            if each in borrowed_cellvars:
+            if each in cellvars:
                 parent.bc.append(Instr('LOAD_CLOSURE', CellVar(each), lineno=lineno))
             else:
                 assert each in freevars
                 parent.bc.append(Instr('LOAD_CLOSURE', FreeVar(each), lineno=lineno))
-
         parent.bc.append(Instr('BUILD_TUPLE', len(freevars)))
 
     def push_current_block(self, blktype: BlockType, label: Label = None):

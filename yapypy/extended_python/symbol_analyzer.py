@@ -22,7 +22,6 @@ class AnalyzedSymTable(NamedTuple):
     bounds: Optional[set]
     freevars: Optional[set]
     cellvars: Optional[set]
-    borrowed_cellvars: Optional[set]
 
 
 class SymTable(INamedList, metaclass=trait(as_namedlist)):
@@ -101,7 +100,7 @@ class SymTable(INamedList, metaclass=trait(as_namedlist)):
             for each in enters
             if each not in nonlocals and each not in globals_
         }
-        self.analyzed = AnalyzedSymTable(bounds, set(), set(), set())
+        self.analyzed = AnalyzedSymTable(bounds, set(), set())
         return bounds
 
     def resolve_freevars(self):
@@ -121,21 +120,20 @@ class SymTable(INamedList, metaclass=trait(as_namedlist)):
 
         def fetched_from_outside(sym_tb: SymTable):
             return sym_tb.analyzed.freevars.union(
-                sym_tb.analyzed.borrowed_cellvars,
-                *(fetched_from_outside(each.analyze()) for each in sym_tb.children),
+                *(each.analyze().analyzed.freevars for each in sym_tb.children),
             )
 
         analyzed = self.analyzed
         cellvars = analyzed.cellvars
         bounds = analyzed.bounds
-        borrowed_cellvars = analyzed.borrowed_cellvars
 
         requires_from_sub_contexts = fetched_from_outside(self)
 
         cellvars.update(requires_from_sub_contexts.intersection(bounds))
-        borrowed_cellvars.update(requires_from_sub_contexts - cellvars)
+        borrowed_freevars = (requires_from_sub_contexts - cellvars)
         bounds.difference_update(cellvars)
-        analyzed.freevars.update(borrowed_cellvars)
+
+        analyzed.freevars.update(borrowed_freevars)
         return cellvars
 
     def is_global(self):
@@ -147,7 +145,7 @@ class SymTable(INamedList, metaclass=trait(as_namedlist)):
 
         if self.is_global():
             # global context
-            self.analyzed = AnalyzedSymTable(set(), set(), set(), set())
+            self.analyzed = AnalyzedSymTable(set(), set(), set())
             for each in self.children:
                 each.analyze()
             return self
@@ -321,14 +319,12 @@ def _visit_fn_def(self: 'ASTTagger', node: Union[ast.FunctionDef, ast.AsyncFunct
 def _visit_lam(self: 'ASTTagger', node: ast.Lambda):
     args = node.args
     new = self.symtable.enter_new()
-
     arguments = args.args + args.kwonlyargs
     if args.vararg:
         arguments.append(args.vararg)
     if args.kwarg:
         arguments.append(args.kwarg)
     for arg in arguments:
-
         # lambda might be able to annotated in the future?
         annotation = arg.annotation
         if annotation:
@@ -375,13 +371,9 @@ if __name__ == '__main__':
     import ast
 
     mod = ("""
-def f():
-    arg = 0
-    
-    def g():
-        return [arg + 1 for _ in range(20)]
-    
-    return g
+class h():
+    def docmodule(self, object, name=None, mod=None, *ignored):
+        lambda t: self.modulelink(t[1])
 """)
     print(mod)
     mod = ast.parse(mod)
