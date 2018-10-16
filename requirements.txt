@@ -1,8 +1,8 @@
 yapf
 pytest
 pytest-cov
-bytecode==0.7.0
-Redy
+bytecode>=0.7.0
+Redy>=0.2.9
 rbnf>=0.3.21
 wisepy
 flake8
