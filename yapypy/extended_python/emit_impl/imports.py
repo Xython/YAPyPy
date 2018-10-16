@@ -25,7 +25,7 @@ def py_emit(node: ast.Import, ctx: Context):
             ),
         ),  # TOS for fromlist()
         byte_code.append(Instr("IMPORT_NAME", name.name, lineno=node.lineno))
-        as_name = name.name or name.asname
+        as_name = name.asname or name.name
         ctx.store_name(as_name, lineno=node.lineno)
 
 

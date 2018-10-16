@@ -56,7 +56,8 @@ class Context(INamedList, metaclass=trait(as_namedlist)):
         if has_annotation and under_class_def_or_module:
             bc.append(SETUP_ANNOTATIONS())
 
-        bc.flags |= CompilerFlags.NEWLOCALS
+        if ContextType.Module not in cts:
+            bc.flags |= CompilerFlags.NEWLOCALS
 
         if ContextType.Coroutine in cts:
             if ContextType.Generator in cts:
