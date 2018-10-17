@@ -80,8 +80,8 @@ def get_yapypy_module_spec_from_path(names, module_path):
         spec = ModuleSpec(names, YAPyPyLoader(names, module_path))
         __source__ = fr.read()
         result = parse(__source__, module_path)
-        # pprint(result.result)
         check_parsing_complete(__source__, result.tokens, result.state)
+
         __bytecode__ = py_compile(
             result.result, filename=module_path, is_entrypoint=False)
         spec.__source__ = __source__

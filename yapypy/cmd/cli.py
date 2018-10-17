@@ -3,11 +3,10 @@ import os
 import struct
 import time
 from importlib._bootstrap_external import MAGIC_NUMBER
-
 from Redy.Tools.PathLib import Path
 from rbnf.edsl.rbnf_analyze import check_parsing_complete
 from wisepy.talking import Talking
-
+from yapypy.extended_python import pycompat
 from yapypy.extended_python.parser import parse as parse_ext_py
 from yapypy.extended_python.py_compile import py_compile
 
