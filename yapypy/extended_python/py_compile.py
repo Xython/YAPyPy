@@ -9,15 +9,8 @@ def py_compile(node, filename='<unknown>', is_entrypoint=False):
     if isinstance(node, Tag):
         ctx = _non_ctx.enter_new(node.tag)
         ctx.bc.filename = filename
-
         ctx.bc.name = '__main__' if is_entrypoint else splitext(
             Path(filename).relative())[0]
-
-        ctx.bc.append(LOAD_GLOBAL('type'))
-        ctx.bc.append(STORE_GLOBAL('.yapypy.type'))
-        ctx.bc.append(LOAD_GLOBAL('locals'))
-        ctx.bc.append(STORE_GLOBAL('.yapypy.locals'))
-
         try:
             py_emit(node.it, ctx)
         except SyntaxError as exc:
@@ -27,7 +20,6 @@ def py_compile(node, filename='<unknown>', is_entrypoint=False):
             return ctx.bc.to_code()
         except Exception as e:
             dump_bytecode(ctx.bc)
-
             raise e
     else:
         tag = to_tagged_ast(node)

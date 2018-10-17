@@ -102,12 +102,16 @@ def case(code, ctx, debug=False):
 case(
     """
 def f():
-    arg = 0
-    def g():
-        return [arg for _ in range(20)]
-    return g
-    
-print(f()())
+    z = 1
+    class S(dict):
+        a = 1
+        b = 2
+        c = 3
+        d = z
+        def __init__(self):
+            super().__init__()
+    print(S)
+f()
     """,
     ctx,
     debug=True)

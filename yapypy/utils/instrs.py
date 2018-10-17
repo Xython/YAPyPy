@@ -5,6 +5,14 @@ def LOAD_ATTR(attr: str, *, lineno=None):
     return Instr('LOAD_ATTR', attr, lineno=lineno)
 
 
+def LOAD_NAME(name: str, *, lineno=None):
+    return Instr('LOAD_NAME', name, lineno=lineno)
+
+
+def MAP_ADD(n: int, *, lineno=None):
+    return Instr("MAP_ADD", n, lineno=lineno)
+
+
 def STORE_ATTR(attr: str, *, lineno=None):
     return Instr('STORE_ATTR', attr, lineno=lineno)
 
@@ -51,6 +59,10 @@ def COMPARE_OP(arg: Compare, *, lineno=None):
 
 def POP_EXCEPT(*, lineno=None):
     return Instr("POP_EXCEPT", lineno=lineno)
+
+
+def STORE_NAME(name: str, *, lineno=None):
+    return Instr("STORE_NAME", name, lineno=lineno)
 
 
 def YIELD_FROM(*, lineno=None):
@@ -259,3 +271,23 @@ def duplicate_top_one(n: int):
         else:
             init_code.append(DUP_TOP_TWO())
         return init_code
+
+
+def check_tos(f=print, n=1):
+    if n is 1:
+        yield from [
+            DUP_TOP(),
+            LOAD_CONST(f),
+            ROT_TWO(),
+            CALL_FUNCTION(1),
+            POP_TOP(),
+        ]
+    else:
+        yield from [
+            DUP_TOP_TWO(),
+            BUILD_TUPLE(2),
+            LOAD_CONST(f),
+            ROT_TWO(),
+            CALL_FUNCTION(1),
+            POP_TOP(),
+        ]

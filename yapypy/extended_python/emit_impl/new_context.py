@@ -190,66 +190,45 @@ def py_emit(node: ast.ClassDef, ctx: Context):
     name = node.name
     parent_ctx: Context = ctx.parent
 
-    ctx.bc.name = f'{parent_ctx.bc.name}.{name}' if parent_ctx.bc.name else name
-
     for decorator in getattr(node, 'decorator_list', ()):
         py_emit(decorator, parent_ctx)
+
+    parent_ctx.bc.append(Instr('LOAD_BUILD_CLASS'))
+    ctx.bc.name = f'{parent_ctx.bc.name}.{name}' if parent_ctx.bc.name else name
 
     head = node.body
     if isinstance(head, ast.Expr) and isinstance(head.value, ast.Str):
         ctx.bc.docstring = head.value.s
 
+    ctx.bc.argcount = 0
+    ctx.bc.kwonlyarbgcount = 0
+    ctx.load_closure(lineno=node.lineno)
+    ctx.bc.extend([
+        LOAD_GLOBAL('__name__'),
+        STORE_NAME('__module__'),
+        LOAD_CONST(ctx.bc.name),
+        STORE_NAME('__qualname__'),
+    ])
     for each in node.body:
         py_emit(each, ctx)
 
-    ctx.bc.argcount = 0
-    ctx.bc.kwonlyarbgcount = 0
-    ctx.bc.argnames = ['.yapypy.args', '.yapypy.kwargs']
-
-    make_function_flags = 0
-    ctx.bc.flags |= CompilerFlags.VARARGS
-    ctx.bc.flags |= CompilerFlags.VARKEYWORDS
-
-    if ctx.sym_tb.freevars:
-        make_function_flags |= 0x08
-        ctx.load_closure(lineno=node.lineno)
-
+    # https://docs.python.org/3/reference/datamodel.html#creating-the-class-object
     ctx.bc.extend([
-        LOAD_GLOBAL('__name__'),
-        STORE_FAST('__module__'),
-        LOAD_CONST(ctx.bc.name),
-        STORE_FAST('__qualname__'),
-        LOAD_FAST('.yapypy.kwargs'),
-        LOAD_ATTR('get'),
-        LOAD_CONST('metaclass'),
-        LOAD_GLOBAL('.yapypy.type'),
-        CALL_FUNCTION(2),  # get metaclass
-        LOAD_CONST(name),
-        LOAD_FAST('.yapypy.args'),
-        LOAD_GLOBAL('.yapypy.locals'),
-        CALL_FUNCTION(0),  # get locals
-        DUP_TOP(),
-        LOAD_ATTR('pop'),
-        DUP_TOP(),
-        LOAD_CONST('.yapypy.args'),
-        CALL_FUNCTION(1),
-        POP_TOP(),
-        LOAD_CONST('.yapypy.kwargs'),
-        CALL_FUNCTION(1),
-        POP_TOP(),
-        CALL_FUNCTION(3, lineno=node.lineno),  # create new type
+        Instr('LOAD_CLOSURE', CellVar('__class__')),
+        STORE_NAME('__classcell__'),
+        LOAD_CONST(None),
+        RETURN_VALUE()
     ])
 
-    ctx.bc.append(Instr('RETURN_VALUE'))
     inner_code = ctx.bc.to_code()
 
     parent_ctx.bc.append(LOAD_CONST(inner_code, lineno=lineno))
     # when it comes to nested, the name is not generated correctly now.
     parent_ctx.bc.append(LOAD_CONST(name, lineno=lineno))
 
-    parent_ctx.bc.append(MAKE_FUNCTION(make_function_flags, lineno=lineno))
+    parent_ctx.bc.append(MAKE_FUNCTION(0x08, lineno=lineno))
 
-
+    parent_ctx.bc.extend([LOAD_CONST(name), BUILD_TUPLE(2)])
 
     # *args
     if node.bases:
@@ -258,6 +237,8 @@ def py_emit(node: ast.ClassDef, ctx: Context):
         py_emit(vararg, parent_ctx)
     else:
         parent_ctx.bc.append(LOAD_CONST(()))
+
+    parent_ctx.bc.append(Instr('BUILD_TUPLE_UNPACK_WITH_CALL', 2))
 
     # **kwargs
     if node.keywords:
@@ -271,9 +252,7 @@ def py_emit(node: ast.ClassDef, ctx: Context):
         py_emit(ex_dict, parent_ctx)
     else:
         parent_ctx.bc.append(BUILD_MAP(0))
-
     parent_ctx.bc.append(CALL_FUNCTION_EX(1))
-
     parent_ctx.bc.extend(
         [CALL_FUNCTION(1, lineno=lineno)] * len(getattr(node, 'decorator_list', ())))
 

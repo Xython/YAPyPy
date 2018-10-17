@@ -56,8 +56,10 @@ class Context(INamedList, metaclass=trait(as_namedlist)):
         if has_annotation and under_class_def_or_module:
             bc.append(SETUP_ANNOTATIONS())
 
-        if ContextType.Module not in cts:
+        if not under_class_def_or_module:
             bc.flags |= CompilerFlags.NEWLOCALS
+            bc.flags |= CompilerFlags.OPTIMIZED
+            bc.flags |= CompilerFlags.NESTED
 
         if ContextType.Coroutine in cts:
             if ContextType.Generator in cts:
@@ -68,16 +70,19 @@ class Context(INamedList, metaclass=trait(as_namedlist)):
             bc.flags |= CompilerFlags.GENERATOR
 
         # not elif for further designing(async lambda)
+        freevars = sym_tb.freevars
+        cellvars = sym_tb.cellvars
+        if ContextType.Module not in cts and ContextType.ClassDef in self.cts and '__class__' not in freevars:
+            freevars.append('__class__')
 
-        if tag_table.depth > 1:
-            bc.flags |= CompilerFlags.NESTED
-
-        if sym_tb.freevars:
-            bc.freevars.extend(sym_tb.freevars)
+        if freevars:
+            bc.freevars.extend(freevars)
         else:
             bc.flags |= CompilerFlags.NOFREE
 
-        bc.cellvars.extend(sym_tb.cellvars)
+        if ContextType.ClassDef in cts and '__class__' not in cellvars:
+            cellvars.append('__class__')
+        bc.cellvars.extend(cellvars)
 
         return Context(
             parent=self,
@@ -89,23 +94,37 @@ class Context(INamedList, metaclass=trait(as_namedlist)):
 
     def load_name(self, name, lineno=None):
         sym_tb = self.sym_tb
+        under_class = ContextType.ClassDef in self.cts
         if name in sym_tb.cellvars:
-            self.bc.append(Instr('LOAD_DEREF', CellVar(name), lineno=lineno))
+            self.bc.append(
+                Instr(
+                    'LOAD_CLASSDEREF' if under_class else 'LOAD_DEREF',
+                    CellVar(name),
+                    lineno=lineno))
         elif name in sym_tb.freevars:
-            self.bc.append(Instr('LOAD_DEREF', FreeVar(name), lineno=lineno))
+            self.bc.append(
+                Instr(
+                    'LOAD_CLASSDEREF' if under_class else 'LOAD_DEREF',
+                    FreeVar(name),
+                    lineno=lineno))
         elif name in sym_tb.bounds:
-            self.bc.append(Instr('LOAD_FAST', name, lineno=lineno))
+            self.bc.append(
+                Instr('LOAD_NAME' if under_class else 'LOAD_FAST', name, lineno=lineno))
         else:
             self.bc.append(Instr("LOAD_GLOBAL", name, lineno=lineno))
 
     def del_name(self, name, lineno=None):
         sym_tb = self.sym_tb
         if name in sym_tb.cellvars:
+            # TODO: no DELETE_CLASSDEREF?
             self.bc.append(Instr('DELETE_DEREF', CellVar(name), lineno=lineno))
         elif name in sym_tb.freevars:
             self.bc.append(Instr('DELETE_DEREF', FreeVar(name), lineno=lineno))
         elif name in sym_tb.bounds:
-            self.bc.append(Instr('DELETE_FAST', name, lineno=lineno))
+            under_class = ContextType.ClassDef in self.cts
+            self.bc.append(
+                Instr(
+                    'DELETE_NAME' if under_class else 'DELETE_FAST', name, lineno=lineno))
         else:
             self.bc.append(Instr("DELETE_GLOBAL", name, lineno=lineno))
 
@@ -116,7 +135,9 @@ class Context(INamedList, metaclass=trait(as_namedlist)):
         elif name in sym_tb.freevars:
             self.bc.append(Instr('STORE_DEREF', FreeVar(name), lineno=lineno))
         elif name in sym_tb.bounds:
-            self.bc.append(Instr('STORE_FAST', name, lineno=lineno))
+            under_class = ContextType.ClassDef in self.cts
+            self.bc.append(
+                Instr('STORE_NAME' if under_class else 'STORE_FAST', name, lineno=lineno))
         else:
             self.bc.append(Instr("STORE_GLOBAL", name, lineno=lineno))
 
@@ -124,12 +145,14 @@ class Context(INamedList, metaclass=trait(as_namedlist)):
         parent = self.parent
         freevars = self.sym_tb.freevars
         cellvars = parent.sym_tb.cellvars
+
         for each in freevars:
             if each in cellvars:
                 parent.bc.append(Instr('LOAD_CLOSURE', CellVar(each), lineno=lineno))
             else:
                 assert each in freevars
                 parent.bc.append(Instr('LOAD_CLOSURE', FreeVar(each), lineno=lineno))
+
         parent.bc.append(Instr('BUILD_TUPLE', len(freevars)))
 
     def push_current_block(self, blktype: BlockType, label: Label = None):
