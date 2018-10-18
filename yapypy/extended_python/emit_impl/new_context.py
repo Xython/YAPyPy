@@ -190,11 +190,27 @@ def py_emit(node: ast.ClassDef, ctx: Context):
     name = node.name
     parent_ctx: Context = ctx.parent
 
+    """
+    ultimately generate code for:
+         <name> = __build_class__(<func>, <name>, *<bases>, **<keywords>)
+    where:
+         <func> is a function/closure created from the class body;
+            it has a single argument (__locals__) where the dict
+            (or MutableSequence) representing the locals is passed
+         <name> is the class name
+         <bases> is the positional arguments and *varargs argument
+         <keywords> is the keyword arguments and **kwds argument
+    This borrows from compiler_call
+    """
+
     for decorator in getattr(node, 'decorator_list', ()):
         py_emit(decorator, parent_ctx)
 
+    # 1. load the 'build_class' function
     parent_ctx.bc.append(Instr('LOAD_BUILD_CLASS'))
     ctx.bc.name = f'{parent_ctx.bc.name}.{name}' if parent_ctx.bc.name else name
+
+    assert ctx.bc.name is not None
 
     head = node.body
     if isinstance(head, ast.Expr) and isinstance(head.value, ast.Str):
@@ -203,12 +219,17 @@ def py_emit(node: ast.ClassDef, ctx: Context):
     ctx.bc.argcount = 0
     ctx.bc.kwonlyarbgcount = 0
     ctx.load_closure(lineno=node.lineno)
+
+    # 2. compile the class body into a code object
+    # enter new block.
     ctx.bc.extend([
         LOAD_GLOBAL('__name__'),
         STORE_NAME('__module__'),
         LOAD_CONST(ctx.bc.name),
         STORE_NAME('__qualname__'),
     ])
+
+    # load body
     for each in node.body:
         py_emit(each, ctx)
 
@@ -221,8 +242,11 @@ def py_emit(node: ast.ClassDef, ctx: Context):
     ])
 
     inner_code = ctx.bc.to_code()
+    # return from new block.
 
+    # 3. load a function (or closure) made from the code object
     parent_ctx.bc.append(LOAD_CONST(inner_code, lineno=lineno))
+    # 4. load class name. (noneable.)
     # when it comes to nested, the name is not generated correctly now.
     parent_ctx.bc.append(LOAD_CONST(name, lineno=lineno))
 
@@ -230,6 +254,7 @@ def py_emit(node: ast.ClassDef, ctx: Context):
 
     parent_ctx.bc.extend([LOAD_CONST(name), BUILD_TUPLE(2)])
 
+    # 5. generate the rest of the code for the call
     # *args
     if node.bases:
         vararg = ast.Tuple(node.bases, ast.Load(), lineno=lineno, col_offset=col_offset)
@@ -244,7 +269,7 @@ def py_emit(node: ast.ClassDef, ctx: Context):
     if node.keywords:
         keys, values = zip(*[(ast.Str(
             keyword.arg, lineno=keyword.value.lineno, col_offset=keyword.value.
-            col_offset) if keyword.arg else None, keyword.value)
+                col_offset) if keyword.arg else None, keyword.value)
                              for keyword in node.keywords])
 
         ex_dict = ex_ast.ExDict(keys, values, ast.Load())
@@ -252,8 +277,12 @@ def py_emit(node: ast.ClassDef, ctx: Context):
         py_emit(ex_dict, parent_ctx)
     else:
         parent_ctx.bc.append(BUILD_MAP(0))
+
     parent_ctx.bc.append(CALL_FUNCTION_EX(1))
+
+    # 6. apply decorators
     parent_ctx.bc.extend(
-        [CALL_FUNCTION(1, lineno=lineno)] * len(getattr(node, 'decorator_list', ())))
+        [CALL_FUNCTION(1, lineno=lineno)] * len(getattr(node, 'decorator_list', ()))
+    )
 
     parent_ctx.store_name(node.name, lineno=lineno)
