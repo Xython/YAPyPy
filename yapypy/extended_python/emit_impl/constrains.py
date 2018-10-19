@@ -68,7 +68,8 @@ def py_emit(node: ast.Yield, ctx: Context):
     >>> def f():
     >>>     yield 1
     >>> self.assertEqual(1, next(f()))
-    >>> yield None
+    >>> def m():
+    >>>     yield None
     """
     if ContextType.Module in ctx.cts:
         exc = SyntaxError()
