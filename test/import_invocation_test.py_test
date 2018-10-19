@@ -1,0 +1,7 @@
+from yapypy.extended_python import pycompat
+from sklearn.ensemble import RandomForestClassifier
+
+pycompat.is_debug = True
+
+rfc = RandomForestClassifier()
+print(rfc)

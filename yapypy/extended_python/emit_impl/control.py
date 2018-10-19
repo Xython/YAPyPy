@@ -294,7 +294,7 @@ def py_emit(node: ast.AsyncFor, ctx: Context):
     ctx.bc.append(GET_AITER(lineno=node.lineno))
 
     if sys.version_info < (3, 7):
-        ctx.bc.append(LOAD_CONST(None,lineno=node.lineno))
+        ctx.bc.append(LOAD_CONST(None, lineno=node.lineno))
         ctx.bc.append(YIELD_FROM(lineno=node.lineno))
 
     ctx.bc.append(iter_in)
@@ -310,7 +310,7 @@ def py_emit(node: ast.AsyncFor, ctx: Context):
     ctx.push_current_block(BlockType.EXCEPT)
     ctx.bc.append(DUP_TOP(lineno=node.lineno))
     ctx.bc.append(LOAD_GLOBAL("StopAsyncIteration", lineno=node.lineno))
-    ctx.bc.append(COMPARE_OP(Compare.EXC_MATCH,lineno=node.lineno))
+    ctx.bc.append(COMPARE_OP(Compare.EXC_MATCH, lineno=node.lineno))
     ctx.bc.append(POP_JUMP_IF_TRUE(try_clean_up, lineno=node.lineno))
     ctx.bc.append(END_FINALLY(lineno=node.lineno))
     ctx.pop_current_block(BlockType.EXCEPT, lineno=node.lineno)

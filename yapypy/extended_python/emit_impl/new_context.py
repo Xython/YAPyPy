@@ -189,7 +189,6 @@ def py_emit(node: ast.ClassDef, ctx: Context):
     col_offset = node.col_offset
     name = node.name
     parent_ctx: Context = ctx.parent
-
     """
     ultimately generate code for:
          <name> = __build_class__(<func>, <name>, *<bases>, **<keywords>)
@@ -269,7 +268,7 @@ def py_emit(node: ast.ClassDef, ctx: Context):
     if node.keywords:
         keys, values = zip(*[(ast.Str(
             keyword.arg, lineno=keyword.value.lineno, col_offset=keyword.value.
-                col_offset) if keyword.arg else None, keyword.value)
+            col_offset) if keyword.arg else None, keyword.value)
                              for keyword in node.keywords])
 
         ex_dict = ex_ast.ExDict(keys, values, ast.Load())
@@ -282,7 +281,6 @@ def py_emit(node: ast.ClassDef, ctx: Context):
 
     # 6. apply decorators
     parent_ctx.bc.extend(
-        [CALL_FUNCTION(1, lineno=lineno)] * len(getattr(node, 'decorator_list', ()))
-    )
+        [CALL_FUNCTION(1, lineno=lineno)] * len(getattr(node, 'decorator_list', ())))
 
     parent_ctx.store_name(node.name, lineno=lineno)
