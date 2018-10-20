@@ -19,6 +19,21 @@ def _read_test_file(file_name: str) -> AnyStr:
         return test_code
 
 
+def _read_abs_test_file(file_path: str) -> AnyStr:
+    with open(file_path) as f:
+        test_code = f.read()
+        return test_code
+
+
+def yapypy_test_abs(file_path: str, should_exec=False, ctx=None):
+    code = _read_abs_test_file(file_path)
+    if code is None:
+        return
+
+    yapypy_test_code(code, should_exec, ctx)
+    return True
+
+
 def yapypy_test(file_name: str, should_exec=False, ctx=None):
     code = _read_test_file(file_name)
     if code is None:
