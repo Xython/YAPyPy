@@ -552,3 +552,142 @@ def py_emit(node: ast.With, ctx: Context):
         ctx.bc.append(WITH_CLEANUP_FINISH(lineno=node.lineno))
         ctx.bc.append(END_FINALLY(lineno=node.lineno))
         ctx.pop_current_block(BlockType.FINALLY_END, node.lineno)
+
+
+@py_emit.case(ast.AsyncWith)
+def py_emit(node: ast.AsyncWith, ctx: Context):
+    """
+    title: async with.
+    prepare:
+    >>> import unittest
+    >>> self: unittest.TestCase
+    >>> from asyncio import sleep, Task, get_event_loop
+    >>> class AsyncYieldFrom:
+    >>>     def __init__(self, obj):
+    >>>         self.obj = obj
+    >>>
+    >>>     def __await__(self):
+    >>>         yield from self.obj
+    >>>
+    >>> class Manager:
+    >>>     def __init__(self, name):
+    >>>         self.name = name
+    >>>
+    >>>     async def __aenter__(self):
+    >>>         await AsyncYieldFrom(['enter-1-' + self.name,
+    >>>                               'enter-2-' + self.name])
+    >>>         return self
+    >>>
+    >>>     async def __aexit__(self, *args):
+    >>>         await AsyncYieldFrom(['exit-1-' + self.name,
+    >>>                               'exit-2-' + self.name])
+    >>>
+    >>>         if self.name == 'B':
+    >>>             return True
+    test:
+    >>> async def foo():
+    >>>    async with Manager("A") as a, Manager("B") as b:
+    >>>        await AsyncYieldFrom([('managers', a.name, b.name)])
+    >>>        1/0
+    >>>
+    >>> f = foo()
+    >>> result = get_event_loop().run_until_complete(f)
+    >>> assert result ==  ['enter-1-A', 'enter-2-A', 'enter-1-B', 'enter-2-B',
+    >>>                     ('managers', 'A', 'B'),
+    >>>                     'exit-1-B', 'exit-2-B', 'exit-1-A', 'exit-2-A']
+    """
+
+    final_labels: typing.List[Label] = []
+
+    """
+    Implements the async with statement.
+
+    The semantics outlined in that PEP are as follows:
+
+    async with EXPR as VAR:
+        BLOCK
+
+    It is implemented roughly as:
+
+    context = EXPR
+    exit = context.__aexit__  # not calling it
+    value = await context.__aenter__()
+    try:
+        VAR = value  # if VAR present in the syntax
+        BLOCK
+    finally:
+        if an exception was raised:
+            exc = copy of (exception, instance, traceback)
+        else:
+            exc = (None, None, None)
+        if not (await exit(*exc)):
+            raise
+    """
+
+    def emit_async_with_push_iter(node_item: ast.withitem):
+        if ContextType.Coroutine not in ctx.cts:
+            raise SyntaxError("'async with' outside async function")
+
+        byte_code = ctx.bc
+        block = Label()
+        final = Label()
+
+        final_labels.append(final)
+
+        if block is None or final is None:
+            return
+
+        # Evaluate EXPR
+        py_emit(node_item.context_expr, ctx)
+
+        byte_code.extend([
+            BEFORE_ASYNC_WITH(),
+            GET_AWAITABLE(),
+            LOAD_CONST(None),
+            YIELD_FROM(),
+            # SETUP_ASYNC_WITH pushes a finally block.
+            SETUP_ASYNC_WITH(final, lineno=node.lineno),
+        ])
+
+        ctx.push_current_block(BlockType.FINALLY_TRY)
+
+        if node_item.optional_vars:
+            py_emit(node_item.optional_vars, ctx)
+        else:
+            byte_code.append(POP_TOP(lineno=node.lineno))
+
+    def emit_async_with_pop_iter():
+        # End of try block; start the finally block
+        byte_code = ctx.bc
+        byte_code.append(POP_BLOCK(lineno=node.lineno))
+        ctx.pop_current_block(BlockType.FINALLY_TRY, lineno=node.lineno)
+
+        byte_code.append(LOAD_CONST(None, lineno=node.lineno))
+        finally_label = final_labels.pop(-1)
+        ctx.push_current_block(BlockType.FINALLY_END, finally_label)
+        byte_code.append(finally_label)
+
+        # Finally block starts; context.__exit__ is on the stack under
+        # the exception or return information. Just issue our magic
+        # opcode.
+
+        byte_code.extend([
+            WITH_CLEANUP_START(),
+            LOAD_CONST(None),
+            YIELD_FROM(),
+            WITH_CLEANUP_FINISH(),
+        ])
+
+        # end final
+        byte_code.append(END_FINALLY(lineno=node.lineno))
+        ctx.pop_current_block(BlockType.FINALLY_END, lineno=node.lineno)
+        pass
+
+    for item in node.items:
+        emit_async_with_push_iter(item)
+
+    for each in node.body:
+        py_emit(each, ctx)
+
+    while final_labels:
+        emit_async_with_pop_iter()
