@@ -22,8 +22,6 @@ class YAPyPyFinder(MetaPathFinder):
             paths, str,
         ) else sys.path
 
-        paths.append(Path('test').abs())
-
         if is_debug:
             print(f'Searching module {fullname} from {paths[:5]}...')
         return find_yapypy_module_spec(fullname, paths)
