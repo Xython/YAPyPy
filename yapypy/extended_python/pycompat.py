@@ -16,9 +16,11 @@ class YAPyPyFinder(MetaPathFinder):
 
     @classmethod
     def find_spec(cls, fullname: str, paths, target=None):
-
         paths = paths if isinstance(
-            paths, list) else [paths] if isinstance(paths, str) else sys.path
+            paths, list,
+        ) else [paths] if isinstance(
+            paths, str,
+        ) else sys.path
 
         if is_debug:
             print(f'Searching module {fullname} from {paths[:5]}...')
@@ -52,7 +54,6 @@ class YAPyPyLoader:
 
 
 def find_yapypy_module_spec(names, paths):
-
     def try_find(prospective_path):
         path_secs = (prospective_path, *names.split('.'))
         *init, end = path_secs
