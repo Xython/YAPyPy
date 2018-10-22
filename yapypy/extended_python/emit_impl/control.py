@@ -559,17 +559,18 @@ def py_emit(node: ast.AsyncWith, ctx: Context):
     """
     title: async with.
     prepare:
-    >>> import unittest
-    >>> self: unittest.TestCase
-    >>> from asyncio import sleep, Task, get_event_loop
-    >>> class AsyncYieldFrom:
-    >>>     def __init__(self, obj):
-    >>>         self.obj = obj
-    >>>
-    >>>     def __await__(self):
-    >>>         yield from self.obj
-    >>>
+    >>> def run_async(coro):
+    >>>     buffer = []
+    >>>     result = None
+    >>>     while True:
+    >>>         try:
+    >>>             buffer.append(coro.send(None))
+    >>>         except StopIteration as ex:
+    >>>             result = ex.args[0] if ex.args else None
+    >>>             break
+    >>>     return buffer, result
     >>> class Manager:
+    >>>     name: str
     >>>     def __init__(self, name):
     >>>         self.name = name
     >>>
@@ -584,14 +585,22 @@ def py_emit(node: ast.AsyncWith, ctx: Context):
     >>>
     >>>         if self.name == 'B':
     >>>             return True
+    >>>
+    >>> class AsyncYieldFrom:
+    >>>     obj = None
+    >>>     def __init__(self, obj):
+    >>>         self.obj = obj
+    >>>
+    >>>     def __await__(self):
+    >>>         yield from self.obj
     test:
     >>> async def foo():
-    >>>    async with Manager("A") as a, Manager("B") as b:
-    >>>        await AsyncYieldFrom([('managers', a.name, b.name)])
-    >>>        1/0
-    >>>
+    >>>     async with Manager("A") as a, Manager("B") as b:
+    >>>         await AsyncYieldFrom([('managers', a.name, b.name)])
+    >>> print('fuck')
     >>> f = foo()
-    >>> result = get_event_loop().run_until_complete(f)
+    >>> result, _ = run_async(f)
+    >>> print('fuck')
     >>> assert result ==  ['enter-1-A', 'enter-2-A', 'enter-1-B', 'enter-2-B',
     >>>                     ('managers', 'A', 'B'),
     >>>                     'exit-1-B', 'exit-2-B', 'exit-1-A', 'exit-2-A']
@@ -673,6 +682,7 @@ def py_emit(node: ast.AsyncWith, ctx: Context):
 
         byte_code.extend([
             WITH_CLEANUP_START(),
+            GET_AWAITABLE(),
             LOAD_CONST(None),
             YIELD_FROM(),
             WITH_CLEANUP_FINISH(),
