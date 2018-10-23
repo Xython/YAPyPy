@@ -68,6 +68,8 @@ def py_emit(node: ast.Yield, ctx: Context):
     >>> def f():
     >>>     yield 1
     >>> self.assertEqual(1, next(f()))
+    >>> def m():
+    >>>     yield None
     """
     if ContextType.Module in ctx.cts:
         exc = SyntaxError()
@@ -75,5 +77,9 @@ def py_emit(node: ast.Yield, ctx: Context):
         exc.msg = 'yield outside functions.'
         raise exc
 
-    py_emit(node.value, ctx)
+    if node.value is not None:
+        py_emit(node.value, ctx)
+    else:
+        ctx.bc.append(LOAD_CONST(None))
+
     ctx.bc.append(Instr('YIELD_VALUE', lineno=node.lineno))
