@@ -597,10 +597,8 @@ def py_emit(node: ast.AsyncWith, ctx: Context):
     >>> async def foo():
     >>>     async with Manager("A") as a, Manager("B") as b:
     >>>         await AsyncYieldFrom([('managers', a.name, b.name)])
-    >>> print('fuck')
     >>> f = foo()
     >>> result, _ = run_async(f)
-    >>> print('fuck')
     >>> assert result ==  ['enter-1-A', 'enter-2-A', 'enter-1-B', 'enter-2-B',
     >>>                     ('managers', 'A', 'B'),
     >>>                     'exit-1-B', 'exit-2-B', 'exit-1-A', 'exit-2-A']
