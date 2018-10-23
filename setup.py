@@ -1,4 +1,5 @@
 from setuptools import setup
+import yapypy
 
 #
 # with open('./README.md', encoding='utf-8') as f:
@@ -7,7 +8,7 @@ readme = ""
 
 setup(
     name='yapypy',
-    version='0.1',
+    version=yapypy.__version__,
     keywords='python implementation, compiler, syntax extension',
     description='Extended and compatible Python written by pure Python',
     long_description=readme,
