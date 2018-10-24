@@ -19,7 +19,7 @@ NL      := R'\n'
 Keyword := 'test:' 'prepare:' '>>>' 'title:' 
 NoSwitch ::= ~Keyword
 Doctest ::= [(~'title:')* 'title:' name=(~NL)+]
-            [(~'prepare:')* 'prepare:' (NoSwitch* '>>>' prepare_lines<<((~NL)+) NL+)*]
+            [(~'prepare:')* 'prepare:' (NoSwitch* '>>>' prepare_lines<<((~NL)*) NL+)*]
             (~'test:')* 'test:' (NoSwitch* '>>>' test_lines<<((~NL)+))* 
             ->
               prepare_lines = recover_codes(sum(prepare_lines, [])) if prepare_lines else ''

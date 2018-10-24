@@ -291,3 +291,11 @@ def check_tos(f=print, n=1):
             CALL_FUNCTION(1),
             POP_TOP(),
         ]
+
+
+def BEFORE_ASYNC_WITH(*, lineno=None):
+    return Instr('BEFORE_ASYNC_WITH', lineno=lineno)
+
+
+def SETUP_ASYNC_WITH(label: Label, *, lineno=None):
+    return Instr('SETUP_ASYNC_WITH', label, lineno=lineno)
