@@ -232,6 +232,13 @@ def _visit_cls(self: 'ASTTagger', node: ast.ClassDef):
     return Tag(node, new)
 
 
+def _visit_await(self: 'ASTTagger', node: ast.Await):
+    cts = self.symtable.cts
+    if ContextType.Coroutine not in cts:
+        cts.add(ContextType.Coroutine)
+    return self.generic_visit(node)
+
+
 def _visit_list_set_gen_comp(self: 'ASTTagger', node: ast.ListComp):
     new = self.symtable.enter_new()
     new.entered.add('.0')
@@ -244,9 +251,6 @@ def _visit_list_set_gen_comp(self: 'ASTTagger', node: ast.ListComp):
         head.ifs = [new_tagger.visit(each) for each in head.ifs]
 
     if any(each.is_async for each in node.generators):
-        new.cts.add(ContextType.Coroutine)
-
-    if ContextType.Coroutine in self.symtable.cts:
         new.cts.add(ContextType.Coroutine)
 
     node.generators = [head, *[new_tagger.visit(each) for each in tail]]
@@ -360,6 +364,7 @@ class ASTTagger(ast.NodeTransformer):
     visit_YieldFrom = _visit_yield_from
     visit_AnnAssign = _visit_ann_assign
     visit_ClassDef = _visit_cls
+    visit_Await = _visit_await
 
 
 def to_tagged_ast(node: ast.Module):
