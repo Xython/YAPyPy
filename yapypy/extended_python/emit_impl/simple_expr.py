@@ -186,7 +186,6 @@ def py_emit(node: ex_ast.AssignExpr, ctx: Context):
     test:
     >>> (a := 1)
     >>> assert a == 1
-
     >>> b = False
     >>> def maybe_odd(i):
     >>>     if i % 2:
@@ -196,7 +195,7 @@ def py_emit(node: ex_ast.AssignExpr, ctx: Context):
     >>> assert not b
     >>> if a := maybe_odd(3):
     >>>     b = True
-    >>> assert not b
+    >>> assert b
     """
     target = node.target
     value = node.value

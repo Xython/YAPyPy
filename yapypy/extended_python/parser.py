@@ -49,7 +49,7 @@ python = Language('python')
 python.namespace.update({**extended_ast.__dict__, **helper.__dict__, **ast.__dict__})
 build_language(RBNF, python, '<grammar>')
 python_parser = python.named_parsers['file_input']
-# python.as_fixed()
+python.as_fixed()
 
 
 def _find_error(source_code, tokens, state):
