@@ -74,24 +74,24 @@ def dis_code(code: types.CodeType, f):
                 dis_code(each, f)
 
 
-def case(code, ctx, debug=False):
+def case(code, ctx, debug=False, cpython_compat=True):
     stmt = parse(code).result
     code_obj = py_compile(stmt, is_entrypoint=False)
 
     if debug:
-        code_obj2 = compile(code, "", "exec")
-        with open('out_yapypy_bc.log', 'w') as yapypy_bc, open(
-                'out_yapypy_info.log', 'w') as yapypy_info, open(
-                    'out_cpy_bc.log', 'w') as cpy_bc, open(
-                        'out_cpy_info.log', 'w') as cpy_info:
+        with open('out_yapypy_bc.log', 'w') as yapypy_bc, open('out_yapypy_info.log',
+                                                               'w') as yapypy_info:
 
             dis_code(code_obj, yapypy_bc)
             show_code(code_obj, yapypy_info)
-            dis_code(code_obj2, cpy_bc)
-            show_code(code_obj2, cpy_info)
-
-        print('python:')
-        exec(Bytecode.from_code(code_obj2).to_code(), ctx or {})
+            if cpython_compat:
+                code_obj2 = compile(code, "", "exec")
+                with open('out_cpy_bc.log', 'w') as cpy_bc, open('out_cpy_info.log',
+                                                                 'w') as cpy_info:
+                    dis_code(code_obj2, cpy_bc)
+                    show_code(code_obj2, cpy_info)
+                    print('python:')
+                    exec(Bytecode.from_code(code_obj2).to_code(), ctx or {})
         print('yapypy')
         exec(Bytecode.from_code(code_obj).to_code(), ctx or {})
 
@@ -101,20 +101,21 @@ def case(code, ctx, debug=False):
 
 case(
     """
-def f():
-    z = 1
-    class S(dict):
-        a = 1
-        b = 2
-        c = 3
-        d = z
-        def __init__(self):
-            super().__init__()
-    print(S)
-f()
+(a := 1)
+a := 1
+print(a)
+def maybe_odd(i):
+    if i % 2:
+        return i 
+if a := maybe_odd(2):
+    print(a)
+if a := maybe_odd(3):
+    print(a)
+
     """,
     ctx,
-    debug=True)
+    debug=True,
+    cpython_compat=False)
 
 # case(
 #     """

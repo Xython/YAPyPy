@@ -1,4 +1,5 @@
 import ast
+import yapypy.extended_python.extended_ast as ex_ast
 import typing
 from yapypy.utils.namedlist import INamedList, as_namedlist, trait
 from typing import NamedTuple, List, Optional, Union

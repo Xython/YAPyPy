@@ -16,11 +16,12 @@ def py_compile(node, filename='<unknown>', is_entrypoint=False):
         except SyntaxError as exc:
             exc.filename = filename
             raise exc
-        try:
-            return ctx.bc.to_code()
-        except Exception as e:
-            dump_bytecode(ctx.bc)
-            raise e
+        return ctx.bc.to_code()
+        # try:
+        #     return ctx.bc.to_code()
+        # except Exception as e:
+        #     dump_bytecode(ctx.bc)
+        #     raise e
     else:
         tag = to_tagged_ast(node)
         return py_compile(tag, filename, is_entrypoint=is_entrypoint)

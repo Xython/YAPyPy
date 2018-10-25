@@ -163,3 +163,43 @@ def py_emit(node: ast.Ellipsis, ctx: Context):
     >>> assert ... is Ellipsis
     """
     ctx.bc.append(LOAD_CONST(..., lineno=node.lineno))
+
+
+@py_emit.case(ex_ast.AssignExpr)
+def py_emit(node: ex_ast.AssignExpr, ctx: Context):
+    """
+    https://www.python.org/dev/peps/pep-0572/
+    Note that some features are not implemented yet:
+
+    1. auto nonlocal detection
+        ```
+        total = 0
+        partial_sums = [total := total + v for v in values]
+        ```
+      * It could be kind of dangerous for the breakage of context.
+    2. some of exceptional cases
+        ```
+        a := 1 # should be invalid according to PEP572
+        ```
+
+    title: assign expr
+    test:
+    >>> (a := 1)
+    >>> assert a == 1
+
+    >>> b = False
+    >>> def maybe_odd(i):
+    >>>     if i % 2:
+    >>>         return i
+    >>> if a := maybe_odd(2):
+    >>>     b = True
+    >>> assert not b
+    >>> if a := maybe_odd(3):
+    >>>     b = True
+    >>> assert not b
+    """
+    target = node.target
+    value = node.value
+    py_emit(value, ctx)
+    py_emit(target, ctx)
+    ctx.load_name(target.id)
