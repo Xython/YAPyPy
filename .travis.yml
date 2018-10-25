@@ -12,9 +12,8 @@ matrix:
 
 install:
   - pip install -r requirements.txt
-  - pip install codecov python_coveralls
+  - pip install python_coveralls
 script:
   - tox
 after_success:
-  - codecov
   - coveralls
