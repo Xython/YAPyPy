@@ -246,6 +246,9 @@ def _visit_list_set_gen_comp(self: 'ASTTagger', node: ast.ListComp):
     if any(each.is_async for each in node.generators):
         new.cts.add(ContextType.Coroutine)
 
+    if ContextType.Coroutine in self.symtable.cts:
+        new.cts.add(ContextType.Coroutine)
+
     node.generators = [head, *[new_tagger.visit(each) for each in tail]]
     return Tag(node, new)
 
