@@ -20,7 +20,7 @@ def _read_test_file(file_name: str) -> AnyStr:
 
 
 def _read_abs_test_file(file_path: str) -> AnyStr:
-    with open(file_path) as f:
+    with open(file_path, 'r', encoding='utf-8') as f:
         test_code = f.read()
         return test_code
 
@@ -82,3 +82,15 @@ def easy_debug(code: str, should_exec=False, ctx=None):
         exec(c, ctx or {})
     else:
         print("\t(skip)")
+
+
+def run_async(coro):
+    buffer = []
+    result = None
+    while True:
+        try:
+            buffer.append(coro.send(None))
+        except StopIteration as ex:
+            result = ex.args[0] if ex.args else None
+            break
+    return buffer, result

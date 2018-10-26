@@ -144,6 +144,17 @@ def py_emit(node: ast.FunctionDef, new_ctx: Context):
 
 @py_emit.case(ast.AsyncFunctionDef)
 def py_emit(node: ast.AsyncFunctionDef, new_ctx: Context):
+    """
+    title: async def
+    prepare:
+    >>> from yapypy.utils.easy_debug import *
+    test:
+    >>> async def f(i):
+    >>>     return i
+    >>> async def run_list():
+    >>>     return [await c for c in [f(1), f(41)]]
+    >>> assert run_async(run_list()) == ([], [1, 41])
+    """
     emit_function(node, new_ctx, is_async=True)
 
 

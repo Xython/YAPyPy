@@ -111,7 +111,6 @@ if a := maybe_odd(2):
     print(a)
 if a := maybe_odd(3):
     print(a)
-
     """,
     ctx,
     debug=True,
