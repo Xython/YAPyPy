@@ -57,9 +57,11 @@ class Context(INamedList, metaclass=trait(as_namedlist)):
             bc.append(SETUP_ANNOTATIONS())
 
         if not under_class_def_or_module:
-            bc.flags |= CompilerFlags.NEWLOCALS
             bc.flags |= CompilerFlags.OPTIMIZED
-            bc.flags |= CompilerFlags.NESTED
+            bc.flags |= CompilerFlags.NEWLOCALS
+
+            if ContextType.Module in self.cts:
+                bc.flags |= CompilerFlags.NESTED
 
         if ContextType.Coroutine in cts:
             if ContextType.Generator in cts:
