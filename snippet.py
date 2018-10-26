@@ -101,17 +101,11 @@ def case(code, ctx, debug=False):
 
 case(
     """
-def f():
-    z = 1
-    class S(dict):
-        a = 1
-        b = 2
-        c = 3
-        d = z
-        def __init__(self):
-            super().__init__()
-    print(S)
-f()
+async def f():
+    return [await a for a in b]
+
+async def g():
+    return [await a async for a in b]
     """,
     ctx,
     debug=True)
