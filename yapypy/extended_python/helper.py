@@ -313,10 +313,13 @@ def check_call_args(loc, seq: t.List[ast.expr]):
     return seq
 
 
-def atom_rewrite(loc, name, number, strs, namedc, ellipsis, dict, is_dict, is_gen,
-                 is_list, comp, yield_expr):
+def atom_rewrite(loc, name, token, value, number, strs, namedc, ellipsis, dict, is_dict,
+                 is_gen, is_list, comp, yield_expr):
     if name:
-        return ast.Name(name.value, ast.Load(), **loc @ name)
+        if not token:
+            return ast.Name(name.value, ast.Load(), **loc @ name)
+        return ex_ast.AssignExpr(
+            ast.Name(name.value, ast.Store(), **loc @ name), value=value, **loc @ token)
 
     if number:
         return ast.Num(eval(number.value), **loc @ number)

@@ -140,17 +140,18 @@ power          ::= atom_expr=atom_expr ['**' factor=factor]             -> BinOp
 atom_expr      ::= [a='await'] atom=atom trailers=trailer*              -> atom_expr_rewrite(a, atom, trailers)
 
 atom           ::= (is_gen ='(' [yield_expr=yield_expr|comp=testlist_comp] ')' |
-                    is_list='[' [comp=testlist_comp]            ']' |
-                       head='{' [dict=dictorsetmaker] is_dict='}' |
-                       name=NAME |
-                       number=NUMBER | 
-                       strs=STRING+ | 
-                       ellipsis='...' | 
-                       namedc='None' | 
-                       namedc='True' | 
+                    is_list='[' [comp=testlist_comp]                       ']' |
+                       head='{' [dict=dictorsetmaker]              is_dict='}' |
+                       name=NAME [token= ':='value=test]                       |
+                       number=NUMBER   | 
+                       strs=STRING+    | 
+                       ellipsis='...'  | 
+                       namedc='None'   | 
+                       namedc='True'   | 
                        namedc='False')
-                       -> atom_rewrite(loc, name, number, strs, namedc, ellipsis,  dict, is_dict, is_gen, is_list, comp, yield_expr)
-                                          
+                       -> atom_rewrite(loc, name, token, value, number, strs, namedc, ellipsis, 
+                                       dict, is_dict, is_gen, is_list, comp, yield_expr)
+                                                                                 
 testlist_comp  ::= values<<(test|star_expr) ( comp=comp_for | (',' values<<(test|star_expr))* [force_tuple=','] )
                    ->
                      def app(is_tuple=None, is_list=None):

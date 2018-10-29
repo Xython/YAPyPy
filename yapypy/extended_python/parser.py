@@ -1,4 +1,3 @@
-import tokenize
 from rbnf.core.Tokenizer import Tokenizer
 from rbnf.core.CachingPool import ConstStrPool
 from rbnf.core.State import State
@@ -6,10 +5,18 @@ from rbnf.easy import Language, build_parser, build_language, ze
 from keyword import kwlist
 from yapypy.extended_python.grammar import RBNF
 from yapypy.extended_python import helper, extended_ast
-
+import sys
 import ast
 import typing as t
 import io
+
+if sys.version_info > (3, 8):  # avoid breakage at dev
+    import tokenize
+elif sys.version_info >= (3, 7):
+    import yapypy.utils.yapypy_tokenize37 as tokenize
+elif sys.version_info >= (3, 6):
+    import yapypy.utils.yapypy_tokenize36 as tokenize
+
 cast = ConstStrPool.cast_to_const
 kwlist = {*kwlist, 'async', 'await'}
 

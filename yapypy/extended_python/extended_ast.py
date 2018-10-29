@@ -31,3 +31,25 @@ class ConstantMapping(ast.Constant):
         self.value = value
         self.lineno = lineno
         self.col_offset = col_offset
+
+
+class AssignExpr(ast.Assign):
+
+    def __init__(self,
+                 target: ast.expr,
+                 value: ast.expr,
+                 lineno: int = None,
+                 col_offset: int = None):
+        super().__init__()
+        self.value = value
+        self.targets = [target]
+        self.lineno = lineno
+        self.col_offset = col_offset
+
+    @property
+    def target(self):
+        return self.targets[0]
+
+    @target.setter
+    def target(self, value):
+        self.targets[0] = value
