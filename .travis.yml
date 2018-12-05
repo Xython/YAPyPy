@@ -9,6 +9,8 @@ matrix:
     dist: xenial
     sudo: required
     env: TOXENV=py37
+  - python: 3.8-dev
+    env: TOXENV=py38
 
 install:
   - pip install -r requirements.txt
